@@ -10,7 +10,9 @@
         "laravel/tinker": "^2.9"
     },
     "require-dev": {
+        "aaronfrancis/solo": "^0.1.2",
         "fakerphp/faker": "^1.23",
+        "joetannenbaum/chewie": "dev-main as 0.1.8",
         "laravel/pint": "^1.13",
         "laravel/sail": "^1.26",
         "mockery/mockery": "^1.6",
