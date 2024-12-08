@@ -11,6 +11,8 @@ class Team extends Model
 
     protected $fillable = [
         'name',
-        'description',
+        'acronym',
+        'home_ground',
+        'year_founded',
     ];
 }
