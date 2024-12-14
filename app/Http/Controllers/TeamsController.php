@@ -37,9 +37,9 @@ class TeamsController extends Controller
         $team->home_ground = $validated['home_ground'];
         $team->save();
 
-        session()->flash('Team added successfully!');
-
-        return redirect()->route('teams.index');
+        return redirect()
+            ->route('teams.index')
+            ->with('status', 'Team added successfully!');
     }
 
     public function show(Team $team)
