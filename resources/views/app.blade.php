@@ -12,6 +12,12 @@
         </div>
     </header>
     <main class="max-w-4xl mx-auto">
+        @if (session('status'))
+            <div class="alert alert-success">
+                {{ session('status') }}
+            </div>
+        @endif
+
         @yield('content')
     </main>
 </body>
