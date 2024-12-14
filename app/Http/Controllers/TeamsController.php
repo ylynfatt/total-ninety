@@ -11,14 +11,14 @@ class TeamsController extends Controller
     {
         $teams = Team::all();
 
-        return response()->view('teams.index', [
+        return view('teams.index', [
             'teams' => $teams
         ]);
     }
 
     public function create(Request $request)
     {
-        return response()->view('teams.create');
+        return view('teams.create');
     }
 
     public function store(Request $request)
@@ -39,7 +39,7 @@ class TeamsController extends Controller
 
         session()->flash('Team added successfully!');
 
-        return redirect('/teams');
+        return redirect()->route('teams.index');
     }
 
     public function show(Team $team)
