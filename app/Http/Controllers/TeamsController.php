@@ -44,17 +44,32 @@ class TeamsController extends Controller
 
     public function show(Team $team)
     {
-
+        return view('teams.show', [
+            'team' => $team
+        ]);
     }
 
     public function edit(Team $team)
     {
-
+        return view('teams.edit', [
+            'team' => $team
+        ]);
     }
 
-    public function update(Team $team)
+    public function update(Request $request, Team $team)
     {
+        $validated = $request->validate([
+            'name' => 'required',
+            'acronym' => 'required|min:3|max:3',
+            'year_founded' => 'required|int',
+            'home_ground' => 'required',
+        ]);
 
+        $team->update($validated);
+
+        return redirect()
+            ->route('teams.show', [$team->id])
+            ->with('status', 'Team updated successfully!');
     }
 
     public function destroy(Team $team)
