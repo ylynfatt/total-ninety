@@ -7,12 +7,12 @@ use Illuminate\Http\Request;
 
 class TeamsController extends Controller
 {
-    function index(Request $request)
+    public function index(Request $request)
     {
         $teams = Team::all();
 
         return view('teams.index', [
-            'teams' => $teams
+            'teams' => $teams,
         ]);
     }
 
@@ -30,7 +30,7 @@ class TeamsController extends Controller
             'home_ground' => 'required',
         ]);
 
-        $team = new Team();
+        $team = new Team;
         $team->name = $validated['name'];
         $team->acronym = $validated['acronym'];
         $team->year_founded = $validated['year_founded'];
@@ -45,14 +45,14 @@ class TeamsController extends Controller
     public function show(Team $team)
     {
         return view('teams.show', [
-            'team' => $team
+            'team' => $team,
         ]);
     }
 
     public function edit(Team $team)
     {
         return view('teams.edit', [
-            'team' => $team
+            'team' => $team,
         ]);
     }
 
@@ -72,8 +72,5 @@ class TeamsController extends Controller
             ->with('status', 'Team updated successfully!');
     }
 
-    public function destroy(Team $team)
-    {
-
-    }
+    public function destroy(Team $team) {}
 }
