@@ -10,6 +10,10 @@
     <header class="p-4">
         <div class="max-w-4xl mx-auto">
             <h1 class="mb-4 text-4xl font-extrabold leading-none tracking-tight text-gray-900 md:text-5xl lg:text-6xl">Total Ninety</h1>
+            <nav>
+                <a href="{{ route('teams.index') }}">Teams</a>
+                <a href="{{ route('games.index') }}">Games</a>
+            </nav>
         </div>
     </header>
     <main class="max-w-4xl mx-auto">
