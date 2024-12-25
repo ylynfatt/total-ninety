@@ -4,9 +4,9 @@ namespace App\Providers;
 
 use AaronFrancis\Solo\Commands\EnhancedTailCommand;
 use AaronFrancis\Solo\Facades\Solo;
-use AaronFrancis\Solo\Providers\SoloApplicationServiceProvider;
+use Illuminate\Support\ServiceProvider;
 
-class SoloServiceProvider extends SoloApplicationServiceProvider
+class SoloServiceProvider extends ServiceProvider
 {
     public function register()
     {
@@ -16,13 +16,14 @@ class SoloServiceProvider extends SoloApplicationServiceProvider
                 EnhancedTailCommand::make('Logs', 'tail -f -n 100 '.storage_path('logs/laravel.log')),
                 'Vite' => 'npm run dev',
                 'HTTP' => 'php artisan serve',
-                'About' => 'php artisan solo:about',
+                // 'About' => 'php artisan solo:about'
             ])
             // Not auto-started
             ->addLazyCommands([
-                'Queue' => 'php artisan queue:listen --tries=1',
+                // 'Queue' => 'php artisan queue:listen --tries=1',
                 // 'Reverb' => 'php artisan reverb:start',
-                'Pint' => 'pint --ansi',
+                'Pint' => './vendor/bin/pint --ansi',
+                'Tests' => 'php artisan test --colors=always',
             ])
             // FQCNs of trusted classes that can add commands.
             ->allowCommandsAddedFrom([
