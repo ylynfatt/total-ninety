@@ -9,17 +9,17 @@ use Illuminate\Http\Request;
 class GamesController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Display a listing of upcoming games.
      */
     public function index()
     {
-        $games = Game::all();
+        $games = Game::orderBy('match_date', 'asc')->get();
 
         return view('games.index', ['games' => $games]);
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Show the form for adding a new game.
      */
     public function create()
     {
