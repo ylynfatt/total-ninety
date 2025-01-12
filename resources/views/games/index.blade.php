@@ -27,8 +27,12 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
                 {{ $game->homeTeam->name }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">{{ $game->match_date }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">{{ $game->awayTeam->name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
+                <a class="text-gray-500 underline" href="{{ route('games.show', ['game' => $game->id]) }}">{{ $game->match_date }}</a>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
+                {{ $game->awayTeam->name }}
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">{{ $game->location }}</td>
         </tr>
         @endforeach

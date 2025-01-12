@@ -19,4 +19,13 @@ class GamesTest extends TestCase
 
         $response->assertStatus(200);
     }
+
+    public function test_games_show_page(): void
+    {
+        $response = $this->get('/games/1');
+
+        $response->assertStatus(200);
+        $response->assertSeeText('Home Team');
+        $response->assertSeeText('Away Team');
+    }
 }
