@@ -49,7 +49,7 @@ class GamesController extends Controller
             'location' => $validated['location'],
         ]);
 
-        return redirect()->route('games.index');
+        return redirect()->route('games.index')->with('status', 'Game added successfully!');
     }
 
     /**
