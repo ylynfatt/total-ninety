@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class TeamSeeder extends Seeder
 {
@@ -27,10 +26,10 @@ class TeamSeeder extends Seeder
                 'year_founded' => 1886,
             ],
             [
-            'name' => 'Manchester City',
-            'acronym' => 'MCI',
-            'home_ground' => 'Etihad Stadium',
-            'year_founded' => 1880,
+                'name' => 'Manchester City',
+                'acronym' => 'MCI',
+                'home_ground' => 'Etihad Stadium',
+                'year_founded' => 1880,
             ],
             [
                 'name' => 'Liverpool',
