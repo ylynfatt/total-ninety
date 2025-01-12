@@ -18,6 +18,7 @@
                 <th scope="col" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">Home Team</th>
                 <th scope="col" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">Date</th>
                 <th scope="col" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">Away Team</th>
+                <th scope="col" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">Location</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200 dark:divide-neutral-700">
@@ -28,6 +29,7 @@
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">{{ $game->match_date }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">{{ $game->awayTeam->name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">{{ $game->location }}</td>
         </tr>
         @endforeach
         </tbody>
