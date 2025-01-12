@@ -9,7 +9,7 @@
 <body>
     <header class="p-4">
         <div class="max-w-4xl mx-auto">
-            <h1 class="mb-4 text-4xl font-extrabold leading-none tracking-tight text-gray-900 md:text-5xl lg:text-6xl">Total Ninety</h1>
+            <h1 class="mb-4 text-4xl font-extrabold leading-none tracking-tight text-gray-900 md:text-5xl lg:text-6xl">⚽️ Total Ninety</h1>
             <nav class="flex gap-4 bg-slate-500 rounded-md p-2">
                 <a href="{{ route('teams.index') }}" class="text-white py-1 px-2 hover:bg-slate-600 hover:rounded-md">Teams</a>
                 <a href="{{ route('games.index') }}" class="text-white py-1 px-2 hover:bg-slate-600 hover:rounded-md">Games</a>
