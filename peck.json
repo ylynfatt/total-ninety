@@ -1,0 +1,9 @@
+{
+    "ignore": {
+        "words": [
+            "fillable",
+            "Http"
+        ],
+        "directories": []
+    }
+}
