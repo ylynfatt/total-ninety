@@ -12,7 +12,7 @@
     </a>
 </div>
 <div class="max-w-7xl max-auto">
-<table class="min-w-full divide-y divide-gray-200 dark:divide-neutral-700">
+    <table class="min-w-full divide-y divide-gray-200 dark:divide-neutral-700">
         <thead>
             <tr>
                 <th scope="col" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">Home Team</th>
