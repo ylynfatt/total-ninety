@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8cfd1e5d9c7b2e485b3bf544a52100c0",
+    "content-hash": "0cfb668f268a8b01f857c9706e92c0bc",
     "packages": [
         {
             "name": "brick/math",
@@ -6787,27 +6787,26 @@
         },
         {
             "name": "peckphp/peck",
-            "version": "dev-main",
+            "version": "v0.1.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/peckphp/peck.git",
-                "reference": "600265c93fd176d694f166367bfd6752f6acbc57"
+                "reference": "907d7221b057519627811c7c752d65ffa9163dc1"
             },
             "require": {
-                "nunomaduro/termwind": "^2.3",
-                "php": "^8.3.0",
-                "symfony/console": "^7.2.1",
-                "symfony/finder": "^7.2.2"
+                "nunomaduro/termwind": "^1.17.0|^2.3.0",
+                "php": "^8.2",
+                "symfony/console": "^6.4.17|^7.2.1",
+                "symfony/finder": "^6.4.17|^7.2.2"
             },
             "require-dev": {
-                "laravel/pint": "^1.19.0",
-                "pestphp/pest": "^3.7.1",
-                "pestphp/pest-plugin-type-coverage": "^3.2.3",
-                "phpstan/phpstan": "^1.12.15",
+                "laravel/pint": "^1.20.0",
+                "pestphp/pest": "^2.36|^3.7.4",
+                "pestphp/pest-plugin-type-coverage": "^2.8.7|^3.2.3",
+                "phpstan/phpstan": "^1.12.16",
                 "rector/rector": "^1.2.10",
                 "symfony/var-dumper": "^7.2.0"
             },
-            "default-branch": true,
             "bin": [
                 "bin/peck"
             ],
@@ -6842,7 +6841,7 @@
                     "phpstan analyse --ansi"
                 ],
                 "test:unit": [
-                    "pest --colors=always --coverage --exactly=98.3"
+                    "pest --colors=always --coverage --min=88.9"
                 ],
                 "test": [
                     "@test:refacto",
@@ -6868,7 +6867,7 @@
                 "php",
                 "spelling"
             ],
-            "time": "2025-01-12T12:46:51+00:00"
+            "time": "2025-03-31T15:16:31+00:00"
         },
         {
             "name": "pestphp/pest",
@@ -9128,8 +9127,7 @@
     ],
     "minimum-stability": "stable",
     "stability-flags": {
-        "joetannenbaum/chewie": 20,
-        "peckphp/peck": 20
+        "joetannenbaum/chewie": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,
