@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Team;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -16,14 +17,17 @@ class GameFactory extends Factory
      */
     public function definition(): array
     {
+        $locations = [
+            'Wembley Stadium', 'Old Trafford', 'Anfield', 'Emirates Stadium', 'Stamford Bridge',
+            'Etihad Stadium', 'Tottenham Hotspur Stadium', 'St. James Park', 'London Stadium',
+            'King Power Stadium', 'Goodison Park', 'Amex Stadium',
+        ];
+
         return [
-            'id' => $this->faker->numberBetween(1, 1000),
-            'home_team_id' => $this->faker->numberBetween(1, 1000),
-            'away_team_id' => $this->faker->numberBetween(1, 1000),
-            'match_date' => $this->faker->dateTime(),
-            'location' => $this->faker->text(),
-            'created_at' => $this->faker->dateTime(),
-            'updated_at' => $this->faker->dateTime(),
+            'home_team_id' => Team::factory(),
+            'away_team_id' => Team::factory(),
+            'match_date' => $this->faker->dateTimeBetween('now', '+6 months'),
+            'location' => $this->faker->randomElement($locations),
         ];
     }
 }
