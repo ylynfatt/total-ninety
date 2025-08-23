@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreTeamRequest;
+use App\Http\Requests\UpdateTeamRequest;
 use App\Models\Team;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
 class TeamsController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): View
     {
         $teams = Team::all();
 
@@ -16,61 +20,51 @@ class TeamsController extends Controller
         ]);
     }
 
-    public function create(Request $request)
+    public function create(Request $request): View
     {
         return view('teams.create');
     }
 
-    public function store(Request $request)
+    public function store(StoreTeamRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required',
-            'acronym' => 'required|min:3|max:3',
-            'year_founded' => 'required|int',
-            'home_ground' => 'required',
-        ]);
-
-        $team = new Team;
-        $team->name = $validated['name'];
-        $team->acronym = $validated['acronym'];
-        $team->year_founded = $validated['year_founded'];
-        $team->home_ground = $validated['home_ground'];
-        $team->save();
+        Team::create($request->validated());
 
         return redirect()
             ->route('teams.index')
             ->with('status', 'Team added successfully!');
     }
 
-    public function show(Team $team)
+    public function show(Team $team): View
     {
+        $team->load(['homeGames', 'awayGames']);
+
         return view('teams.show', [
             'team' => $team,
         ]);
     }
 
-    public function edit(Team $team)
+    public function edit(Team $team): View
     {
         return view('teams.edit', [
             'team' => $team,
         ]);
     }
 
-    public function update(Request $request, Team $team)
+    public function update(UpdateTeamRequest $request, Team $team): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required',
-            'acronym' => 'required|min:3|max:3',
-            'year_founded' => 'required|int',
-            'home_ground' => 'required',
-        ]);
-
-        $team->update($validated);
+        $team->update($request->validated());
 
         return redirect()
-            ->route('teams.show', [$team->id])
+            ->route('teams.show', $team)
             ->with('status', 'Team updated successfully!');
     }
 
-    public function destroy(Team $team) {}
+    public function destroy(Team $team): RedirectResponse
+    {
+        $team->delete();
+
+        return redirect()
+            ->route('teams.index')
+            ->with('status', 'Team deleted successfully!');
+    }
 }
