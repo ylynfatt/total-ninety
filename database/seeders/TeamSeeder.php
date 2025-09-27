@@ -50,10 +50,10 @@ class TeamSeeder extends Seeder
                 'year_founded' => 1886,
             ],
             [
-                'name' => 'Leicester City',
-                'acronym' => 'LEI',
-                'home_ground' => 'King Power Stadium',
-                'year_founded' => 1884,
+                'name' => 'Leeds',
+                'acronym' => 'LEE',
+                'home_ground' => 'Elland Road',
+                'year_founded' => 1919,
             ],
             [
                 'name' => 'Everton',
@@ -74,10 +74,10 @@ class TeamSeeder extends Seeder
                 'year_founded' => 1874,
             ],
             [
-                'name' => 'Southampton',
-                'acronym' => 'SOU',
-                'home_ground' => 'St Mary\'s Stadium',
-                'year_founded' => 1885,
+                'name' => 'Burnley',
+                'acronym' => 'BUR',
+                'home_ground' => 'Turf Moor',
+                'year_founded' => 1882,
             ],
             [
                 'name' => 'Crystal Palace',
@@ -134,10 +134,10 @@ class TeamSeeder extends Seeder
                 'year_founded' => 1889,
             ],
             [
-                'name' => 'Ipswitch Town',
-                'acronym' => 'IPS',
-                'home_ground' => 'Portman Road',
-                'year_founded' => 1878,
+                'name' => 'Sunderland',
+                'acronym' => 'SUN',
+                'home_ground' => 'Stadium of Light',
+                'year_founded' => 1879,
             ],
         ];
 
