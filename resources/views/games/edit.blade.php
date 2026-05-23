@@ -2,6 +2,18 @@
 
 @section('content')
 <h2 class="mb-3">Edit Game</h2>
+
+@if ($errors->any())
+    <div class="mb-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <p class="font-medium">Please fix the following:</p>
+        <ul class="mt-2 list-disc list-inside">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
 <form action="{{ route('games.update', [$game->id]) }}" method="post">
     @csrf
     @method('PUT')
