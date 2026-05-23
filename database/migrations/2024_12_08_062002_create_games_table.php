@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('games', function (Blueprint $table) {
             $table->id();
-            $table->integer('home_team_id');
-            $table->integer('away_team_id');
+            $table->foreignId('home_team_id')->constrained('teams')->restrictOnDelete();
+            $table->foreignId('away_team_id')->constrained('teams')->restrictOnDelete();
             $table->dateTime('match_date');
             $table->string('location');
             $table->timestamps();

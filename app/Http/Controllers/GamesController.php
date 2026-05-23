@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreGameRequest;
+use App\Http\Requests\UpdateGameRequest;
 use App\Models\Game;
 use App\Models\Team;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class GamesController extends Controller
@@ -80,14 +80,9 @@ class GamesController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Game $game): RedirectResponse
+    public function update(UpdateGameRequest $request, Game $game): RedirectResponse
     {
-        $validated = $request->validate([
-            'home_team' => ['required', 'integer', 'exists:teams,id'],
-            'away_team' => ['required', 'integer', 'exists:teams,id', 'different:home_team'],
-            'match_date' => ['required', 'date'],
-            'location' => ['required', 'string', 'max:255'],
-        ]);
+        $validated = $request->validated();
 
         $game->update([
             'home_team_id' => $validated['home_team'],
