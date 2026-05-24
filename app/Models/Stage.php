@@ -46,4 +46,9 @@ class Stage extends Model
     {
         return $this->hasMany(Group::class)->orderBy('order');
     }
+
+    public function games(): HasMany
+    {
+        return $this->hasMany(Game::class);
+    }
 }

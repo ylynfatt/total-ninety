@@ -13,6 +13,8 @@ class Game extends Model
 
     protected $fillable = [
         'season_id',
+        'stage_id',
+        'group_id',
         'home_team_id',
         'away_team_id',
         'match_date',
@@ -44,5 +46,15 @@ class Game extends Model
     public function season(): BelongsTo
     {
         return $this->belongsTo(Season::class);
+    }
+
+    public function stage(): BelongsTo
+    {
+        return $this->belongsTo(Stage::class);
+    }
+
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(Group::class);
     }
 }
