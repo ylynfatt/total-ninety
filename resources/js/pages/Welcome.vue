@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { dashboard, login } from '@/routes';
 import { register } from '@/routes';
+import { index as leaguesIndex } from '@/routes/leagues';
 </script>
 
 <template>
@@ -34,12 +35,18 @@ import { register } from '@/routes';
             </nav>
         </header>
 
-        <main class="flex flex-1 items-center justify-center px-6">
+        <main class="flex flex-1 flex-col items-center justify-center gap-8 px-6">
             <h1
                 class="text-center text-4xl font-extrabold leading-none tracking-tight text-gray-900 md:text-5xl lg:text-6xl dark:text-neutral-100"
             >
                 ⚽️ Total Ninety
             </h1>
+            <Link
+                :href="leaguesIndex().url"
+                class="inline-flex items-center rounded-md border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-900 shadow-sm transition hover:bg-slate-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+            >
+                Browse leagues
+            </Link>
         </main>
     </div>
 </template>
