@@ -1,4 +1,4 @@
-@extends('app')
+@extends('legacy')
 
 @section('content')
     <h2 class="mb-4 text-lg">{{ $team->name }}</h2>

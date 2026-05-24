@@ -1,4 +1,4 @@
-@extends('app')
+@extends('legacy')
 
 @section('content')
 <h2 class="mb-3">Add Team</h2>

@@ -1,4 +1,4 @@
-@extends('app')
+@extends('legacy')
 
 @section('content')
 <div class="mb-4 flex justify-between items-center">
