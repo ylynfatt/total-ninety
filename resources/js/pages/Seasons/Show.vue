@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { index as leaguesIndex, show as leagueShow } from '@/routes/leagues';
 import { destroy, edit as seasonEdit } from '@/routes/seasons';
 import { edit as editTeams } from '@/routes/seasons/teams';
+import { create as createStage, show as stageShow } from '@/routes/stages';
 
 interface LeagueSummary {
     id: number;
@@ -112,17 +113,32 @@ function deleteSeason() {
         </Card>
 
         <section>
-            <h2 class="mb-3 text-lg font-semibold">Stages</h2>
+            <div class="mb-3 flex items-center justify-between">
+                <h2 class="text-lg font-semibold">Stages</h2>
+                <Button v-if="can.update" size="sm" as-child>
+                    <Link :href="createStage([league.slug, season.id]).url">Create stage</Link>
+                </Button>
+            </div>
             <div v-if="season.stages.length === 0" class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
                 No stages defined yet.
+                <Link v-if="can.update" :href="createStage([league.slug, season.id]).url" class="font-medium text-foreground underline underline-offset-4">
+                    Add the first one.
+                </Link>
             </div>
             <div v-else class="grid gap-3 sm:grid-cols-2">
-                <Card v-for="stage in season.stages" :key="stage.id">
-                    <CardHeader>
-                        <CardTitle class="text-base">{{ stage.name }}</CardTitle>
-                        <CardDescription>{{ stage.format }}</CardDescription>
-                    </CardHeader>
-                </Card>
+                <Link
+                    v-for="stage in season.stages"
+                    :key="stage.id"
+                    :href="stageShow([league.slug, season.id, stage.id]).url"
+                    class="block transition hover:opacity-90"
+                >
+                    <Card>
+                        <CardHeader>
+                            <CardTitle class="text-base">{{ stage.name }}</CardTitle>
+                            <CardDescription>{{ stage.format.replace(/_/g, ' ') }}</CardDescription>
+                        </CardHeader>
+                    </Card>
+                </Link>
             </div>
         </section>
     </div>
