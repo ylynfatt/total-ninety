@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\GamesController;
 use App\Http\Controllers\LeaguesController;
+use App\Http\Controllers\SeasonsController;
 use App\Http\Controllers\TeamsController;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +30,27 @@ Route::middleware('auth')->group(function () {
     Route::put('leagues/{league}', [LeaguesController::class, 'update'])->name('leagues.update');
     Route::patch('leagues/{league}', [LeaguesController::class, 'update']);
     Route::delete('leagues/{league}', [LeaguesController::class, 'destroy'])->name('leagues.destroy');
+});
+
+// Seasons (nested under a league). Same create-before-show ordering rule.
+Route::middleware('auth')->group(function () {
+    Route::get('leagues/{league}/seasons/create', [SeasonsController::class, 'create'])->name('seasons.create');
+    Route::post('leagues/{league}/seasons', [SeasonsController::class, 'store'])->name('seasons.store');
+});
+
+Route::get('leagues/{league}/seasons/{season}', [SeasonsController::class, 'show'])
+    ->scopeBindings()
+    ->name('seasons.show');
+
+Route::middleware('auth')->scopeBindings()->group(function () {
+    Route::get('leagues/{league}/seasons/{season}/edit', [SeasonsController::class, 'edit'])->name('seasons.edit');
+    Route::put('leagues/{league}/seasons/{season}', [SeasonsController::class, 'update'])->name('seasons.update');
+    Route::patch('leagues/{league}/seasons/{season}', [SeasonsController::class, 'update']);
+    Route::delete('leagues/{league}/seasons/{season}', [SeasonsController::class, 'destroy'])->name('seasons.destroy');
+
+    // Team roster picker for the season.
+    Route::get('leagues/{league}/seasons/{season}/teams', [SeasonsController::class, 'editTeams'])->name('seasons.teams.edit');
+    Route::put('leagues/{league}/seasons/{season}/teams', [SeasonsController::class, 'syncTeams'])->name('seasons.teams.sync');
 });
 
 // Legacy Blade-rendered resources — slated for removal in a later phase.

@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { destroy, edit, index, show } from '@/routes/leagues';
+import { create as createSeason, show as seasonShow } from '@/routes/seasons';
 
 interface Season {
     id: number;
@@ -81,22 +82,37 @@ function deleteLeague() {
         </Card>
 
         <section>
-            <h2 class="mb-3 text-lg font-semibold">Seasons</h2>
+            <div class="mb-3 flex items-center justify-between">
+                <h2 class="text-lg font-semibold">Seasons</h2>
+                <Button v-if="can.update" size="sm" as-child>
+                    <Link :href="createSeason(league.slug).url">Create season</Link>
+                </Button>
+            </div>
             <div v-if="league.seasons.length === 0" class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
                 No seasons created yet.
+                <Link v-if="can.update" :href="createSeason(league.slug).url" class="font-medium text-foreground underline underline-offset-4">
+                    Add the first one.
+                </Link>
             </div>
             <div v-else class="grid gap-3 sm:grid-cols-2">
-                <Card v-for="season in league.seasons" :key="season.id">
-                    <CardHeader>
-                        <div class="flex items-center justify-between gap-2">
-                            <CardTitle class="text-base">{{ season.name }}</CardTitle>
-                            <Badge v-if="season.is_active">Active</Badge>
-                        </div>
-                        <CardDescription>
-                            {{ season.starts_on }}<span v-if="season.ends_on"> &mdash; {{ season.ends_on }}</span>
-                        </CardDescription>
-                    </CardHeader>
-                </Card>
+                <Link
+                    v-for="season in league.seasons"
+                    :key="season.id"
+                    :href="seasonShow([league.slug, season.id]).url"
+                    class="block transition hover:opacity-90"
+                >
+                    <Card>
+                        <CardHeader>
+                            <div class="flex items-center justify-between gap-2">
+                                <CardTitle class="text-base">{{ season.name }}</CardTitle>
+                                <Badge v-if="season.is_active">Active</Badge>
+                            </div>
+                            <CardDescription>
+                                {{ season.starts_on }}<span v-if="season.ends_on"> &mdash; {{ season.ends_on }}</span>
+                            </CardDescription>
+                        </CardHeader>
+                    </Card>
+                </Link>
             </div>
         </section>
     </div>
