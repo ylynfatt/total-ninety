@@ -35,6 +35,7 @@ class FormatRegistry
             StageFormat::RoundRobinDouble->value => RoundRobinDoubleGenerator::class,
             StageFormat::GroupStage->value => GroupStageGenerator::class,
             StageFormat::SingleElimination->value => SingleEliminationGenerator::class,
+            StageFormat::Conference->value => ConferenceGenerator::class,
         ];
     }
 

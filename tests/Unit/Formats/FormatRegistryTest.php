@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Formats\ConferenceGenerator;
 use App\Domain\Formats\FormatRegistry;
 use App\Domain\Formats\GroupStageGenerator;
 use App\Domain\Formats\RoundRobinDoubleGenerator;
@@ -36,23 +37,28 @@ describe('FormatRegistry', function () {
             ->toBeInstanceOf(SingleEliminationGenerator::class);
     });
 
-    it('throws DomainException for formats not yet registered', function (StageFormat $format) {
+    it('resolves a ConferenceGenerator for Conference', function () {
         $registry = app(FormatRegistry::class);
 
-        expect(fn () => $registry->for($format))
-            ->toThrow(DomainException::class);
-    })->with([
-        'double elimination' => StageFormat::DoubleElimination,
-        'conference' => StageFormat::Conference,
-    ]);
+        expect($registry->for(StageFormat::Conference))
+            ->toBeInstanceOf(ConferenceGenerator::class);
+    });
 
-    it('reports supports() correctly for registered and unregistered formats', function () {
+    it('throws DomainException only for DoubleElimination (not yet implemented)', function () {
+        $registry = app(FormatRegistry::class);
+
+        expect(fn () => $registry->for(StageFormat::DoubleElimination))
+            ->toThrow(DomainException::class);
+    });
+
+    it('reports supports() correctly for every format', function () {
         $registry = app(FormatRegistry::class);
 
         expect($registry->supports(StageFormat::RoundRobinSingle))->toBeTrue();
         expect($registry->supports(StageFormat::RoundRobinDouble))->toBeTrue();
         expect($registry->supports(StageFormat::GroupStage))->toBeTrue();
         expect($registry->supports(StageFormat::SingleElimination))->toBeTrue();
-        expect($registry->supports(StageFormat::Conference))->toBeFalse();
+        expect($registry->supports(StageFormat::Conference))->toBeTrue();
+        expect($registry->supports(StageFormat::DoubleElimination))->toBeFalse();
     });
 });
