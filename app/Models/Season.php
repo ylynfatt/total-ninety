@@ -47,4 +47,9 @@ class Season extends Model
     {
         return $this->hasMany(Game::class);
     }
+
+    public function stages(): HasMany
+    {
+        return $this->hasMany(Stage::class)->orderBy('order');
+    }
 }
