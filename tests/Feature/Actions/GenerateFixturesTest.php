@@ -3,6 +3,7 @@
 use App\Actions\GenerateFixtures;
 use App\Enums\StageFormat;
 use App\Models\Game;
+use App\Models\Group;
 use App\Models\Season;
 use App\Models\Stage;
 use App\Models\Team;
@@ -59,10 +60,61 @@ describe('GenerateFixtures action', function () {
     });
 
     it('refuses to generate for a format the registry does not support yet', function () {
-        [$season, $stage] = seasonWithTeams(4, StageFormat::SingleElimination);
+        [$season, $stage] = seasonWithTeams(4, StageFormat::DoubleElimination);
 
         expect(fn () => app(GenerateFixtures::class)->execute($stage))
             ->toThrow(DomainException::class, 'No fixture generator');
+    });
+
+    it('persists grouped games with group_id stamped per group for a GroupStage', function () {
+        // 2 groups of 3 teams → 3 games per group × 2 groups = 6 fixtures
+        $season = Season::factory()->create();
+        $stage = Stage::factory()->groupStage()->create(['season_id' => $season->id]);
+
+        $groupA = Group::factory()->create(['stage_id' => $stage->id]);
+        $groupA->teams()->attach(Team::factory()->count(3)->create());
+
+        $groupB = Group::factory()->create(['stage_id' => $stage->id]);
+        $groupB->teams()->attach(Team::factory()->count(3)->create());
+
+        $games = app(GenerateFixtures::class)->execute($stage);
+
+        expect($games)->toHaveCount(6);
+        expect(Game::where('stage_id', $stage->id)->whereNotNull('group_id')->count())->toBe(6);
+        expect(Game::where('group_id', $groupA->id)->count())->toBe(3);
+        expect(Game::where('group_id', $groupB->id)->count())->toBe(3);
+    });
+
+    it('persists round-1 bracket games for a SingleElimination stage', function () {
+        // 8 teams → 4 round-1 games, no byes, no groups
+        [$season, $stage] = seasonWithTeams(8, StageFormat::SingleElimination);
+
+        $games = app(GenerateFixtures::class)->execute($stage);
+
+        expect($games)->toHaveCount(4);
+        expect(Game::where('stage_id', $stage->id)->whereNull('group_id')->count())->toBe(4);
+    });
+
+    it('persists conference + cross-conference games when configured', function () {
+        // 2 conferences of 3 teams, intra=1, cross=1
+        // Intra: 3 per conf × 2 = 6; Cross: 3*3 = 9; Total = 15
+        $season = Season::factory()->create();
+        $stage = Stage::factory()->conference()->create([
+            'season_id' => $season->id,
+            'config' => ['intra_conference_legs' => 1, 'cross_conference_legs' => 1],
+        ]);
+
+        Group::factory()->create(['stage_id' => $stage->id])
+            ->teams()->attach(Team::factory()->count(3)->create());
+        Group::factory()->create(['stage_id' => $stage->id])
+            ->teams()->attach(Team::factory()->count(3)->create());
+
+        $games = app(GenerateFixtures::class)->execute($stage);
+
+        expect($games)->toHaveCount(15);
+        // Every game gets a group_id (cross-conference too — tagged with the
+        // home team's conference).
+        expect(Game::where('stage_id', $stage->id)->whereNotNull('group_id')->count())->toBe(15);
     });
 
     it('rolls back when persistence fails mid-transaction', function () {
