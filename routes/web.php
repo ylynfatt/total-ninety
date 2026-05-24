@@ -3,6 +3,7 @@
 use App\Http\Controllers\GamesController;
 use App\Http\Controllers\LeaguesController;
 use App\Http\Controllers\SeasonsController;
+use App\Http\Controllers\StagesController;
 use App\Http\Controllers\TeamsController;
 use Illuminate\Support\Facades\Route;
 
@@ -51,6 +52,29 @@ Route::middleware('auth')->scopeBindings()->group(function () {
     // Team roster picker for the season.
     Route::get('leagues/{league}/seasons/{season}/teams', [SeasonsController::class, 'editTeams'])->name('seasons.teams.edit');
     Route::put('leagues/{league}/seasons/{season}/teams', [SeasonsController::class, 'syncTeams'])->name('seasons.teams.sync');
+});
+
+// Stages (nested under a season). Same create-before-show ordering.
+Route::middleware('auth')->scopeBindings()->group(function () {
+    Route::get('leagues/{league}/seasons/{season}/stages/create', [StagesController::class, 'create'])->name('stages.create');
+    Route::post('leagues/{league}/seasons/{season}/stages', [StagesController::class, 'store'])->name('stages.store');
+});
+
+Route::get('leagues/{league}/seasons/{season}/stages/{stage}', [StagesController::class, 'show'])
+    ->scopeBindings()
+    ->name('stages.show');
+
+Route::middleware('auth')->scopeBindings()->group(function () {
+    Route::get('leagues/{league}/seasons/{season}/stages/{stage}/edit', [StagesController::class, 'edit'])->name('stages.edit');
+    Route::put('leagues/{league}/seasons/{season}/stages/{stage}', [StagesController::class, 'update'])->name('stages.update');
+    Route::patch('leagues/{league}/seasons/{season}/stages/{stage}', [StagesController::class, 'update']);
+    Route::delete('leagues/{league}/seasons/{season}/stages/{stage}', [StagesController::class, 'destroy'])->name('stages.destroy');
+
+    // Generate fixtures for a stage.
+    Route::post(
+        'leagues/{league}/seasons/{season}/stages/{stage}/generate-fixtures',
+        [StagesController::class, 'generateFixtures']
+    )->name('stages.generate-fixtures');
 });
 
 // Legacy Blade-rendered resources — slated for removal in a later phase.
