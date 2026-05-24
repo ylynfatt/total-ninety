@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Formats\FormatRegistry;
+use App\Domain\Formats\GroupStageGenerator;
 use App\Domain\Formats\RoundRobinDoubleGenerator;
 use App\Domain\Formats\RoundRobinSingleGenerator;
 use App\Enums\StageFormat;
@@ -20,13 +21,19 @@ describe('FormatRegistry', function () {
             ->toBeInstanceOf(RoundRobinDoubleGenerator::class);
     });
 
+    it('resolves a GroupStageGenerator for GroupStage', function () {
+        $registry = app(FormatRegistry::class);
+
+        expect($registry->for(StageFormat::GroupStage))
+            ->toBeInstanceOf(GroupStageGenerator::class);
+    });
+
     it('throws DomainException for formats not yet registered', function (StageFormat $format) {
         $registry = app(FormatRegistry::class);
 
         expect(fn () => $registry->for($format))
             ->toThrow(DomainException::class);
     })->with([
-        'group stage' => StageFormat::GroupStage,
         'single elimination' => StageFormat::SingleElimination,
         'double elimination' => StageFormat::DoubleElimination,
         'conference' => StageFormat::Conference,
@@ -37,7 +44,8 @@ describe('FormatRegistry', function () {
 
         expect($registry->supports(StageFormat::RoundRobinSingle))->toBeTrue();
         expect($registry->supports(StageFormat::RoundRobinDouble))->toBeTrue();
-        expect($registry->supports(StageFormat::GroupStage))->toBeFalse();
+        expect($registry->supports(StageFormat::GroupStage))->toBeTrue();
         expect($registry->supports(StageFormat::SingleElimination))->toBeFalse();
+        expect($registry->supports(StageFormat::Conference))->toBeFalse();
     });
 });
