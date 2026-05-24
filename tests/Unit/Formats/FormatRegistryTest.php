@@ -1,8 +1,11 @@
 <?php
 
+use App\Domain\Formats\ConferenceGenerator;
 use App\Domain\Formats\FormatRegistry;
+use App\Domain\Formats\GroupStageGenerator;
 use App\Domain\Formats\RoundRobinDoubleGenerator;
 use App\Domain\Formats\RoundRobinSingleGenerator;
+use App\Domain\Formats\SingleEliminationGenerator;
 use App\Enums\StageFormat;
 
 describe('FormatRegistry', function () {
@@ -20,24 +23,42 @@ describe('FormatRegistry', function () {
             ->toBeInstanceOf(RoundRobinDoubleGenerator::class);
     });
 
-    it('throws DomainException for formats not yet registered', function (StageFormat $format) {
+    it('resolves a GroupStageGenerator for GroupStage', function () {
         $registry = app(FormatRegistry::class);
 
-        expect(fn () => $registry->for($format))
-            ->toThrow(DomainException::class);
-    })->with([
-        'group stage' => StageFormat::GroupStage,
-        'single elimination' => StageFormat::SingleElimination,
-        'double elimination' => StageFormat::DoubleElimination,
-        'conference' => StageFormat::Conference,
-    ]);
+        expect($registry->for(StageFormat::GroupStage))
+            ->toBeInstanceOf(GroupStageGenerator::class);
+    });
 
-    it('reports supports() correctly for registered and unregistered formats', function () {
+    it('resolves a SingleEliminationGenerator for SingleElimination', function () {
+        $registry = app(FormatRegistry::class);
+
+        expect($registry->for(StageFormat::SingleElimination))
+            ->toBeInstanceOf(SingleEliminationGenerator::class);
+    });
+
+    it('resolves a ConferenceGenerator for Conference', function () {
+        $registry = app(FormatRegistry::class);
+
+        expect($registry->for(StageFormat::Conference))
+            ->toBeInstanceOf(ConferenceGenerator::class);
+    });
+
+    it('throws DomainException only for DoubleElimination (not yet implemented)', function () {
+        $registry = app(FormatRegistry::class);
+
+        expect(fn () => $registry->for(StageFormat::DoubleElimination))
+            ->toThrow(DomainException::class);
+    });
+
+    it('reports supports() correctly for every format', function () {
         $registry = app(FormatRegistry::class);
 
         expect($registry->supports(StageFormat::RoundRobinSingle))->toBeTrue();
         expect($registry->supports(StageFormat::RoundRobinDouble))->toBeTrue();
-        expect($registry->supports(StageFormat::GroupStage))->toBeFalse();
-        expect($registry->supports(StageFormat::SingleElimination))->toBeFalse();
+        expect($registry->supports(StageFormat::GroupStage))->toBeTrue();
+        expect($registry->supports(StageFormat::SingleElimination))->toBeTrue();
+        expect($registry->supports(StageFormat::Conference))->toBeTrue();
+        expect($registry->supports(StageFormat::DoubleElimination))->toBeFalse();
     });
 });
