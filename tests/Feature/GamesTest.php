@@ -81,7 +81,56 @@ describe('Games controller', function () {
             ->assertViewIs('games.edit')
             ->assertViewHas('game', $game)
             ->assertViewHas('teams');
-    })->skip('View not implemented yet');
+    });
+
+    it('shows validation errors on the create form when picking the same team twice', function () {
+        $team = Team::factory()->create();
+
+        $this->from('/games/create')
+            ->post('/games', [
+                'home_team' => $team->id,
+                'away_team' => $team->id,
+                'match_date' => now()->addDays(7)->format('Y-m-d'),
+                'location' => 'Wembley Stadium',
+            ])
+            ->assertRedirect('/games/create')
+            ->assertSessionHasErrors('away_team');
+
+        $this->assertDatabaseMissing('games', ['location' => 'Wembley Stadium']);
+    });
+
+    it('rejects a match date that is not in the future', function () {
+        $homeTeam = Team::factory()->create();
+        $awayTeam = Team::factory()->create();
+
+        $this->from('/games/create')
+            ->post('/games', [
+                'home_team' => $homeTeam->id,
+                'away_team' => $awayTeam->id,
+                'match_date' => now()->format('Y-m-d'),
+                'location' => 'Wembley Stadium',
+            ])
+            ->assertRedirect('/games/create')
+            ->assertSessionHasErrors('match_date');
+    });
+
+    it('repopulates the form with old input after a validation failure', function () {
+        $homeTeam = Team::factory()->create();
+        $awayTeam = Team::factory()->create();
+
+        $response = $this->from('/games/create')
+            ->post('/games', [
+                'home_team' => $homeTeam->id,
+                'away_team' => $awayTeam->id,
+                'match_date' => 'not-a-date',
+                'location' => 'Wembley Stadium',
+            ])
+            ->assertRedirect('/games/create');
+
+        $this->followRedirects($response)
+            ->assertSee('Wembley Stadium')
+            ->assertSee('Please fix the following:');
+    });
 
     it('can update a game', function () {
         $homeTeam = Team::factory()->create();

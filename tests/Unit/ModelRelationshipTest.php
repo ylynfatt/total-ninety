@@ -1,11 +1,13 @@
 <?php
 
 use App\Models\Game;
+use App\Models\Player;
 use App\Models\Result;
 use App\Models\Team;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\QueryException;
 
 describe('Team relationships', function () {
     it('has many games', function () {
@@ -126,5 +128,55 @@ describe('Result relationships', function () {
         expect($result->game->location)->toBe('Test Stadium');
         expect($result->home_team_score)->toBe(2);
         expect($result->away_team_score)->toBe(1);
+    });
+});
+
+describe('Player relationships', function () {
+    it('belongs to a team', function () {
+        $player = Player::factory()->create();
+
+        expect($player->team())->toBeInstanceOf(BelongsTo::class);
+    });
+
+    it('can be a free agent without a team', function () {
+        $player = Player::factory()->freeAgent()->create();
+
+        expect($player->team_id)->toBeNull();
+        expect($player->team)->toBeNull();
+    });
+
+    it('is exposed via Team::players()', function () {
+        $team = Team::factory()->create();
+        Player::factory()->count(3)->create(['team_id' => $team->id]);
+
+        expect($team->players())->toBeInstanceOf(HasMany::class);
+        expect($team->players)->toHaveCount(3);
+    });
+});
+
+describe('Foreign key constraints', function () {
+    it('cascade-deletes a result when its game is deleted', function () {
+        $game = Game::factory()->create();
+        $result = Result::factory()->create(['game_id' => $game->id]);
+
+        $game->delete();
+
+        expect(Result::find($result->id))->toBeNull();
+    });
+
+    it('prevents deleting a team that still has games', function () {
+        $team = Team::factory()->create();
+        Game::factory()->create(['home_team_id' => $team->id]);
+
+        expect(fn () => $team->delete())->toThrow(QueryException::class);
+    });
+
+    it('nulls a players team_id when its team is deleted', function () {
+        $team = Team::factory()->create();
+        $player = Player::factory()->create(['team_id' => $team->id]);
+
+        $team->delete();
+
+        expect($player->fresh()->team_id)->toBeNull();
     });
 });
