@@ -45,20 +45,19 @@ class GenerateFixtures
             );
         }
 
-        $teams = $stage->season->teams;
+        $generator = $this->registry->for($stage->format);
+        $pairs = $generator->generate($stage);
 
-        if ($teams->count() < 2) {
+        if ($pairs->isEmpty()) {
             throw new DomainException(
-                "Stage [{$stage->id}] needs at least 2 teams in its season to generate fixtures."
+                "Stage [{$stage->id}] has no teams to generate fixtures from."
             );
         }
-
-        $generator = $this->registry->for($stage->format);
-        $pairs = $generator->generate($teams);
 
         return DB::transaction(fn () => $pairs->map(fn (array $pair) => Game::create([
             'season_id' => $stage->season_id,
             'stage_id' => $stage->id,
+            'group_id' => $pair['group_id'] ?? null,
             'home_team_id' => $pair['home_team_id'],
             'away_team_id' => $pair['away_team_id'],
         ])));

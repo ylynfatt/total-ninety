@@ -46,7 +46,7 @@ describe('GenerateFixtures action', function () {
             ->toThrow(DomainException::class, 'already has fixtures');
     });
 
-    it('refuses to generate when fewer than 2 teams are in the season', function () {
+    it('refuses to generate when the stage has no teams to draw from', function () {
         $season = Season::factory()->create();
         $season->teams()->attach(Team::factory()->create());
         $stage = Stage::factory()->create([
@@ -55,7 +55,7 @@ describe('GenerateFixtures action', function () {
         ]);
 
         expect(fn () => app(GenerateFixtures::class)->execute($stage))
-            ->toThrow(DomainException::class, 'at least 2 teams');
+            ->toThrow(DomainException::class, 'no teams to generate fixtures from');
     });
 
     it('refuses to generate for a format the registry does not support yet', function () {

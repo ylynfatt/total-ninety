@@ -2,23 +2,25 @@
 
 namespace App\Domain\Formats;
 
-use App\Models\Team;
+use App\Models\Stage;
 use Illuminate\Support\Collection;
 
 /**
- * Produces fixture pairs (home team id, away team id) for a given set of teams.
+ * Produces fixture pairs for a Stage.
  *
- * Implementations are pure functions over the team collection — they do not
- * persist anything, schedule anything, or know about the Stage that's
- * generating fixtures. The GenerateFixtures action is responsible for picking
- * the right generator (via FormatRegistry) and persisting the pairs into the
- * games table inside a transaction.
+ * Implementations are pure functions over the stage's domain state — they do
+ * not persist anything or schedule anything. The GenerateFixtures action is
+ * responsible for picking the right generator (via FormatRegistry) and
+ * persisting the resulting pairs into the games table inside a transaction.
+ *
+ * Pair shape: each entry is an associative array with home_team_id,
+ * away_team_id, and a nullable group_id (set only for grouped formats like
+ * GroupStage and Conference).
  */
 interface FixtureGenerator
 {
     /**
-     * @param  Collection<int, Team>  $teams
-     * @return Collection<int, array{home_team_id: int, away_team_id: int}>
+     * @return Collection<int, array{home_team_id: int, away_team_id: int, group_id: int|null}>
      */
-    public function generate(Collection $teams): Collection;
+    public function generate(Stage $stage): Collection;
 }
