@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Models\Game;
+use App\Models\League;
 use App\Models\User;
 
 class GamePolicy
@@ -14,12 +15,13 @@ class GamePolicy
 
     public function view(?User $user, Game $game): bool
     {
-        // Games without a season (legacy data) are publicly viewable.
-        if ($game->season_id === null) {
+        $league = $this->leagueFor($game);
+
+        if ($league === null) {
             return true;
         }
 
-        return $game->season->league->is_public || $user?->id === $game->season->league->user_id;
+        return $league->is_public || $user?->id === $league->user_id;
     }
 
     public function create(User $user): bool
@@ -29,32 +31,48 @@ class GamePolicy
 
     public function update(?User $user, Game $game): bool
     {
-        // Legacy games (no season) remain editable while Phase 1 routes exist.
-        if ($game->season_id === null) {
+        $league = $this->leagueFor($game);
+
+        // Legacy games (no stage, no season) remain mutable while Phase 1
+        // routes still exist.
+        if ($league === null) {
             return true;
         }
 
-        return $user?->id === $game->season->league->user_id;
+        return $user?->id === $league->user_id;
     }
 
     public function delete(?User $user, Game $game): bool
     {
-        if ($game->season_id === null) {
-            return true;
-        }
-
-        return $user?->id === $game->season->league->user_id;
+        return $this->update($user, $game);
     }
 
     public function restore(User $user, Game $game): bool
     {
-        return $game->season_id === null
-            || $user->id === $game->season->league->user_id;
+        $league = $this->leagueFor($game);
+
+        return $league === null || $user->id === $league->user_id;
     }
 
     public function forceDelete(User $user, Game $game): bool
     {
-        return $game->season_id === null
-            || $user->id === $game->season->league->user_id;
+        return $this->restore($user, $game);
+    }
+
+    /**
+     * Resolve the owning league for a game, preferring the stage chain
+     * when set and falling back to the season FK.
+     */
+    private function leagueFor(Game $game): ?League
+    {
+        if ($game->stage_id !== null) {
+            return $game->stage?->season?->league;
+        }
+
+        if ($game->season_id !== null) {
+            return $game->season?->league;
+        }
+
+        return null;
     }
 }

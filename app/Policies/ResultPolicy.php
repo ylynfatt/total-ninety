@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\League;
 use App\Models\Result;
 use App\Models\User;
 
@@ -14,13 +15,13 @@ class ResultPolicy
 
     public function view(?User $user, Result $result): bool
     {
-        $season = $result->game->season;
+        $league = $this->leagueFor($result);
 
-        if ($season === null) {
+        if ($league === null) {
             return true;
         }
 
-        return $season->league->is_public || $user?->id === $season->league->user_id;
+        return $league->is_public || $user?->id === $league->user_id;
     }
 
     public function create(User $user): bool
@@ -30,37 +31,52 @@ class ResultPolicy
 
     public function update(?User $user, Result $result): bool
     {
-        $season = $result->game->season;
+        $league = $this->leagueFor($result);
 
-        if ($season === null) {
+        if ($league === null) {
             return true;
         }
 
-        return $user?->id === $season->league->user_id;
+        return $user?->id === $league->user_id;
     }
 
     public function delete(?User $user, Result $result): bool
     {
-        $season = $result->game->season;
-
-        if ($season === null) {
-            return true;
-        }
-
-        return $user?->id === $season->league->user_id;
+        return $this->update($user, $result);
     }
 
     public function restore(User $user, Result $result): bool
     {
-        $season = $result->game->season;
+        $league = $this->leagueFor($result);
 
-        return $season === null || $user->id === $season->league->user_id;
+        return $league === null || $user->id === $league->user_id;
     }
 
     public function forceDelete(User $user, Result $result): bool
     {
-        $season = $result->game->season;
+        return $this->restore($user, $result);
+    }
 
-        return $season === null || $user->id === $season->league->user_id;
+    /**
+     * Resolve the owning league for a result via its game, preferring the
+     * stage chain when set and falling back to the season FK.
+     */
+    private function leagueFor(Result $result): ?League
+    {
+        $game = $result->game;
+
+        if ($game === null) {
+            return null;
+        }
+
+        if ($game->stage_id !== null) {
+            return $game->stage?->season?->league;
+        }
+
+        if ($game->season_id !== null) {
+            return $game->season?->league;
+        }
+
+        return null;
     }
 }
