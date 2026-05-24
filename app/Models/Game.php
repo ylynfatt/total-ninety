@@ -12,6 +12,7 @@ class Game extends Model
     use HasFactory;
 
     protected $fillable = [
+        'season_id',
         'home_team_id',
         'away_team_id',
         'match_date',
@@ -38,5 +39,10 @@ class Game extends Model
     public function result(): HasOne
     {
         return $this->hasOne(Result::class);
+    }
+
+    public function season(): BelongsTo
+    {
+        return $this->belongsTo(Season::class);
     }
 }
