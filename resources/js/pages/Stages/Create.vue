@@ -43,6 +43,9 @@ const form = useForm({
     starts_on: '',
     ends_on: '',
     advances_count: null as number | null,
+    config: {
+        legs_per_group: 1 as 1 | 2,
+    },
 });
 
 defineOptions({
@@ -106,7 +109,24 @@ function submit() {
             </div>
 
             <div v-if="selectedFormat?.hasGroups" class="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700/40 dark:bg-amber-950/40 dark:text-amber-200">
-                Grouped formats need you to create groups and assign teams to them before fixtures can be generated. The Groups UI is coming in the next update.
+                Grouped formats need you to create groups and assign teams to them before fixtures can be generated. You can manage groups from the stage page after creating it.
+            </div>
+
+            <div v-if="form.format === 'group_stage'" class="grid gap-2">
+                <Label for="legs_per_group">Legs per group</Label>
+                <Select v-model.number="form.config.legs_per_group">
+                    <SelectTrigger id="legs_per_group">
+                        <SelectValue placeholder="How many times each pair plays" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem :value="1">Single round-robin (1 leg)</SelectItem>
+                        <SelectItem :value="2">Home and away (2 legs)</SelectItem>
+                    </SelectContent>
+                </Select>
+                <p class="text-xs text-muted-foreground">
+                    For 5 teams per group: 1 leg = 10 games/group · 2 legs = 20 games/group.
+                </p>
+                <InputError :message="form.errors['config.legs_per_group']" />
             </div>
 
             <div v-if="selectedFormat?.isBracket" class="rounded-md border border-sky-300 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-700/40 dark:bg-sky-950/40 dark:text-sky-200">

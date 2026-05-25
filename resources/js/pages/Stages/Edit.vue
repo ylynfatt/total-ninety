@@ -6,6 +6,7 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { index as leaguesIndex, show as leagueShow } from '@/routes/leagues';
 import { show as seasonShow } from '@/routes/seasons';
 import { show as stageShow, update } from '@/routes/stages';
@@ -30,6 +31,7 @@ interface Stage {
     starts_on: string | null;
     ends_on: string | null;
     advances_count: number | null;
+    config: Record<string, unknown> | null;
 }
 
 interface FormatOption {
@@ -44,12 +46,17 @@ const props = defineProps<{
     formats: FormatOption[];
 }>();
 
+const currentLegs = (props.stage.config?.legs_per_group as 1 | 2 | undefined) ?? 1;
+
 const form = useForm({
     name: props.stage.name,
     order: props.stage.order,
     starts_on: props.stage.starts_on ?? '',
     ends_on: props.stage.ends_on ?? '',
     advances_count: props.stage.advances_count,
+    config: {
+        legs_per_group: currentLegs,
+    },
 });
 
 const formatLabel = props.formats.find((f) => f.value === props.stage.format)?.label ?? props.stage.format;
@@ -113,6 +120,23 @@ function submit() {
                 <Label for="order">Order</Label>
                 <Input id="order" type="number" min="0" max="65535" v-model="form.order" />
                 <InputError :message="form.errors.order" />
+            </div>
+
+            <div v-if="stage.format === 'group_stage'" class="grid gap-2">
+                <Label for="legs_per_group">Legs per group</Label>
+                <Select v-model.number="form.config.legs_per_group">
+                    <SelectTrigger id="legs_per_group">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem :value="1">Single round-robin (1 leg)</SelectItem>
+                        <SelectItem :value="2">Home and away (2 legs)</SelectItem>
+                    </SelectContent>
+                </Select>
+                <p class="text-xs text-muted-foreground">
+                    Changing this only affects new fixtures generated after the change.
+                </p>
+                <InputError :message="form.errors['config.legs_per_group']" />
             </div>
 
             <div class="flex items-center gap-3">

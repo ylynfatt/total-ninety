@@ -40,6 +40,7 @@ class StoreStageRequest extends FormRequest
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
             'advances_count' => ['nullable', 'integer', 'min:1'],
             'config' => ['nullable', 'array'],
+            'config.legs_per_group' => ['sometimes', 'integer', 'in:1,2'],
         ];
     }
 
@@ -48,6 +49,24 @@ class StoreStageRequest extends FormRequest
         $this->merge([
             'order' => $this->input('order', 0),
         ]);
+
+        // Coerce legs_per_group from string to int when it comes from a <Select>
+        // payload, and only keep the key if format is GroupStage (silently
+        // drop it otherwise so it doesn't pollute the JSON column).
+        $config = $this->input('config', []);
+        if (! is_array($config)) {
+            $config = [];
+        }
+
+        if (isset($config['legs_per_group']) && $this->input('format') === 'group_stage') {
+            $config['legs_per_group'] = (int) $config['legs_per_group'];
+        } else {
+            unset($config['legs_per_group']);
+        }
+
+        $this->merge([
+            'config' => empty($config) ? null : $config,
+        ]);
     }
 
     public function messages(): array
@@ -55,6 +74,7 @@ class StoreStageRequest extends FormRequest
         return [
             'name.unique' => 'A stage with that name already exists in this season.',
             'ends_on.after_or_equal' => 'End date must be on or after the start date.',
+            'config.legs_per_group.in' => 'Legs per group must be either 1 (single round-robin) or 2 (home and away).',
         ];
     }
 }

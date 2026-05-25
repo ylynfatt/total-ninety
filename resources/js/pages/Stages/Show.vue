@@ -54,6 +54,7 @@ interface Stage {
     order: number;
     starts_on: string | null;
     ends_on: string | null;
+    config: Record<string, unknown> | null;
     groups: Group[];
     games: Game[];
 }
@@ -79,6 +80,12 @@ defineOptions({
 const hasGroupedFormat = computed(() => ['group_stage', 'conference'].includes(props.stage.format));
 const isBracketFormat = computed(() => ['single_elimination', 'double_elimination'].includes(props.stage.format));
 const fixturesGenerated = computed(() => props.stage.games.length > 0);
+
+const legsPerGroup = computed<1 | 2>(() => {
+    const value = props.stage.config?.legs_per_group as number | undefined;
+
+    return value === 2 ? 2 : 1;
+});
 
 const pageBreadcrumbs = computed<BreadcrumbItem[]>(() => [
     { title: 'Leagues', href: leaguesIndex().url },
@@ -143,6 +150,9 @@ function deleteGroup(group: Group) {
                         <CardTitle class="text-base">Groups</CardTitle>
                         <CardDescription>
                             {{ stage.groups.length }} group{{ stage.groups.length === 1 ? '' : 's' }}
+                            <span v-if="stage.format === 'group_stage'">
+                                · {{ legsPerGroup === 2 ? 'home and away' : 'single round-robin' }}
+                            </span>
                             <span v-if="stage.groups.length === 0">— add at least one before generating fixtures</span>
                         </CardDescription>
                     </div>
