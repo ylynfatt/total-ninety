@@ -47,7 +47,7 @@ class StagesController extends Controller
         $this->authorize('view', $stage);
 
         $stage->load([
-            'groups',
+            'groups' => fn ($q) => $q->withCount('teams'),
             'games' => fn ($q) => $q->orderBy('match_date'),
             'games.homeTeam:id,name,acronym',
             'games.awayTeam:id,name,acronym',

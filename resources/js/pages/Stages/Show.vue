@@ -5,6 +5,8 @@ import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { create as createGroup, destroy as destroyGroup, edit as editGroup } from '@/routes/groups';
+import { edit as editGroupTeams } from '@/routes/groups/teams';
 import { index as leaguesIndex, show as leagueShow } from '@/routes/leagues';
 import { show as seasonShow } from '@/routes/seasons';
 import { destroy, edit as stageEdit, generateFixtures } from '@/routes/stages';
@@ -42,6 +44,7 @@ interface Group {
     id: number;
     name: string;
     order: number;
+    teams_count: number;
 }
 
 interface Stage {
@@ -99,6 +102,13 @@ function deleteStage() {
     }
     router.delete(destroy([props.league.slug, props.season.id, props.stage.id]).url);
 }
+
+function deleteGroup(group: Group) {
+    if (!confirm(`Delete group "${group.name}"? Any games already in this group will become unassigned (but won't be deleted).`)) {
+        return;
+    }
+    router.delete(destroyGroup([props.league.slug, props.season.id, props.stage.id, group.id]).url);
+}
 </script>
 
 <template>
@@ -125,14 +135,47 @@ function deleteStage() {
             </div>
         </header>
 
-        <!-- Groups note for grouped formats -->
-        <Card v-if="hasGroupedFormat && stage.groups.length === 0">
+        <!-- Groups card for grouped formats -->
+        <Card v-if="hasGroupedFormat">
             <CardHeader>
-                <CardTitle class="text-base">Groups required</CardTitle>
-                <CardDescription>
-                    This format needs groups (or conferences) with teams attached before fixtures can be generated. The Groups UI is coming in the next update.
-                </CardDescription>
+                <div class="flex items-center justify-between gap-2">
+                    <div>
+                        <CardTitle class="text-base">Groups</CardTitle>
+                        <CardDescription>
+                            {{ stage.groups.length }} group{{ stage.groups.length === 1 ? '' : 's' }}
+                            <span v-if="stage.groups.length === 0">— add at least one before generating fixtures</span>
+                        </CardDescription>
+                    </div>
+                    <Button v-if="can.update" size="sm" as-child>
+                        <Link :href="createGroup([league.slug, season.id, stage.id]).url">Create group</Link>
+                    </Button>
+                </div>
             </CardHeader>
+            <CardContent v-if="stage.groups.length > 0">
+                <ul class="grid gap-2">
+                    <li
+                        v-for="group in stage.groups"
+                        :key="group.id"
+                        class="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-card px-3 py-2"
+                    >
+                        <div class="flex items-center gap-3 text-sm">
+                            <span class="font-medium">{{ group.name }}</span>
+                            <span class="text-muted-foreground">{{ group.teams_count }} team{{ group.teams_count === 1 ? '' : 's' }}</span>
+                        </div>
+                        <div v-if="can.update" class="flex gap-2">
+                            <Button size="sm" variant="outline" as-child>
+                                <Link :href="editGroupTeams([league.slug, season.id, stage.id, group.id]).url">Manage teams</Link>
+                            </Button>
+                            <Button size="sm" variant="ghost" as-child>
+                                <Link :href="editGroup([league.slug, season.id, stage.id, group.id]).url">Edit</Link>
+                            </Button>
+                            <Button size="sm" variant="ghost" class="text-destructive" @click="deleteGroup(group)">
+                                Delete
+                            </Button>
+                        </div>
+                    </li>
+                </ul>
+            </CardContent>
         </Card>
 
         <!-- Fixture generation card -->
