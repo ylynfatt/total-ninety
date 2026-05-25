@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\GamesController;
+use App\Http\Controllers\GroupsController;
 use App\Http\Controllers\LeaguesController;
 use App\Http\Controllers\SeasonsController;
 use App\Http\Controllers\StagesController;
@@ -75,6 +76,21 @@ Route::middleware('auth')->scopeBindings()->group(function () {
         'leagues/{league}/seasons/{season}/stages/{stage}/generate-fixtures',
         [StagesController::class, 'generateFixtures']
     )->name('stages.generate-fixtures');
+});
+
+// Groups (nested under a stage). For GroupStage / Conference formats only,
+// though we don't enforce that here — controller validation handles it.
+Route::middleware('auth')->scopeBindings()->group(function () {
+    Route::get('leagues/{league}/seasons/{season}/stages/{stage}/groups/create', [GroupsController::class, 'create'])->name('groups.create');
+    Route::post('leagues/{league}/seasons/{season}/stages/{stage}/groups', [GroupsController::class, 'store'])->name('groups.store');
+    Route::get('leagues/{league}/seasons/{season}/stages/{stage}/groups/{group}/edit', [GroupsController::class, 'edit'])->name('groups.edit');
+    Route::put('leagues/{league}/seasons/{season}/stages/{stage}/groups/{group}', [GroupsController::class, 'update'])->name('groups.update');
+    Route::patch('leagues/{league}/seasons/{season}/stages/{stage}/groups/{group}', [GroupsController::class, 'update']);
+    Route::delete('leagues/{league}/seasons/{season}/stages/{stage}/groups/{group}', [GroupsController::class, 'destroy'])->name('groups.destroy');
+
+    // Team picker for a group, constrained to the parent season's roster.
+    Route::get('leagues/{league}/seasons/{season}/stages/{stage}/groups/{group}/teams', [GroupsController::class, 'editTeams'])->name('groups.teams.edit');
+    Route::put('leagues/{league}/seasons/{season}/stages/{stage}/groups/{group}/teams', [GroupsController::class, 'syncTeams'])->name('groups.teams.sync');
 });
 
 // Legacy Blade-rendered resources — slated for removal in a later phase.
