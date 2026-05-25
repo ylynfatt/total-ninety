@@ -5,6 +5,7 @@ import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { edit as editFixture } from '@/routes/fixtures';
 import { create as createGroup, destroy as destroyGroup, edit as editGroup } from '@/routes/groups';
 import { edit as editGroupTeams } from '@/routes/groups/teams';
 import { index as leaguesIndex, show as leagueShow } from '@/routes/leagues';
@@ -29,6 +30,12 @@ interface TeamSummary {
     acronym: string;
 }
 
+interface ResultRow {
+    id: number;
+    home_team_score: number;
+    away_team_score: number;
+}
+
 interface Game {
     id: number;
     home_team_id: number;
@@ -38,6 +45,7 @@ interface Game {
     match_date: string | null;
     location: string | null;
     group_id: number | null;
+    result: ResultRow | null;
 }
 
 interface Group {
@@ -220,11 +228,21 @@ function deleteGroup(group: Group) {
                     <li v-for="game in stage.games" :key="game.id" class="flex items-center gap-4 px-4 py-2 text-sm">
                         <span class="font-mono text-xs text-muted-foreground tabular-nums">#{{ game.id }}</span>
                         <span class="flex-1 text-right">{{ game.home_team?.name ?? '—' }}</span>
-                        <span class="text-xs text-muted-foreground">vs</span>
-                        <span class="flex-1">{{ game.away_team?.name ?? '—' }}</span>
-                        <span class="text-xs text-muted-foreground">
-                            {{ game.match_date ?? 'TBD' }}
+                        <span v-if="game.result" class="rounded bg-muted px-2 py-0.5 text-sm font-semibold tabular-nums">
+                            {{ game.result.home_team_score }}&nbsp;–&nbsp;{{ game.result.away_team_score }}
                         </span>
+                        <span v-else class="text-xs text-muted-foreground">vs</span>
+                        <span class="flex-1">{{ game.away_team?.name ?? '—' }}</span>
+                        <span class="text-xs text-muted-foreground tabular-nums">
+                            {{ game.match_date ? game.match_date.slice(0, 10) : 'TBD' }}
+                        </span>
+                        <Link
+                            v-if="can.update"
+                            :href="editFixture([league.slug, season.id, stage.id, game.id]).url"
+                            class="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
+                        >
+                            Edit
+                        </Link>
                     </li>
                 </ul>
             </CardContent>
