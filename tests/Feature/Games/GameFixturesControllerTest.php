@@ -63,7 +63,7 @@ describe('GameFixturesController edit', function () {
 });
 
 describe('GameFixturesController updateSchedule', function () {
-    it('lets the owner set match_date + location', function () {
+    it('lets the owner set match_date + location and redirects to Stage Show', function () {
         [$league, $season, $stage, $game] = stageFixture();
 
         $this->actingAs($league->owner)
@@ -71,11 +71,32 @@ describe('GameFixturesController updateSchedule', function () {
                 'match_date' => '2026-08-15',
                 'location' => 'Wembley Stadium',
             ])
-            ->assertRedirect();
+            ->assertRedirect("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}");
 
         $fresh = $game->fresh();
         expect($fresh->match_date->format('Y-m-d'))->toBe('2026-08-15');
         expect($fresh->location)->toBe('Wembley Stadium');
+    });
+
+    it('Stage Show reflects the updated schedule immediately after PATCH', function () {
+        [$league, $season, $stage, $game] = stageFixture();
+
+        $this->actingAs($league->owner)
+            ->patch("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}/games/{$game->id}/schedule", [
+                'match_date' => '2026-08-15',
+                'location' => 'Wembley Stadium',
+            ]);
+
+        // Regression for the "still shows TBD" bug — without the explicit
+        // route-show redirect, this would still pass server-side, but client
+        // navigation via browser back can show a cached pre-update page.
+        // The fix is the redirect; this test pins it.
+        $this->get("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}")
+            ->assertInertia(fn ($page) => $page
+                ->component('Stages/Show')
+                ->where('stage.games.0.location', 'Wembley Stadium')
+                ->has('stage.games.0.match_date')
+            );
     });
 
     it('allows clearing date + location by sending nulls', function () {
@@ -107,7 +128,7 @@ describe('GameFixturesController updateSchedule', function () {
 });
 
 describe('GameFixturesController storeResult', function () {
-    it('records a result for a previously unrecorded game', function () {
+    it('records a result and redirects to Stage Show', function () {
         [$league, $season, $stage, $game] = stageFixture();
 
         $this->actingAs($league->owner)
@@ -115,7 +136,7 @@ describe('GameFixturesController storeResult', function () {
                 'home_team_score' => 2,
                 'away_team_score' => 1,
             ])
-            ->assertRedirect();
+            ->assertRedirect("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}");
 
         expect($game->fresh()->result)->not->toBeNull();
         expect($game->fresh()->result->home_team_score)->toBe(2);
@@ -179,13 +200,13 @@ describe('GameFixturesController storeResult', function () {
 });
 
 describe('GameFixturesController destroyResult', function () {
-    it('clears a recorded result', function () {
+    it('clears a recorded result and redirects to Stage Show', function () {
         [$league, $season, $stage, $game] = stageFixture();
         Result::factory()->create(['game_id' => $game->id]);
 
         $this->actingAs($league->owner)
             ->delete("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}/games/{$game->id}/result")
-            ->assertRedirect();
+            ->assertRedirect("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}");
 
         expect($game->fresh()->result)->toBeNull();
     });

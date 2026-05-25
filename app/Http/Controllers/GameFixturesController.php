@@ -49,7 +49,14 @@ class GameFixturesController extends Controller
 
         $game->update($request->validated());
 
-        return back()->with('status', 'Schedule updated.');
+        // Redirect to Stage Show rather than back() so the user sees their
+        // change confirmed on the fixture list. back() would return to the
+        // edit page, and if the user then used the browser back button, they
+        // would land on a stale (history-cached) Stage Show that still
+        // shows the old "TBD" date.
+        return redirect()
+            ->route('stages.show', [$league, $season, $stage])
+            ->with('status', 'Schedule updated.');
     }
 
     public function storeResult(StoreResultRequest $request, League $league, Season $season, Stage $stage, Game $game): RedirectResponse
@@ -63,7 +70,9 @@ class GameFixturesController extends Controller
             $request->validated(),
         );
 
-        return back()->with('status', 'Result recorded.');
+        return redirect()
+            ->route('stages.show', [$league, $season, $stage])
+            ->with('status', 'Result recorded.');
     }
 
     public function destroyResult(League $league, Season $season, Stage $stage, Game $game): RedirectResponse
@@ -73,7 +82,9 @@ class GameFixturesController extends Controller
 
         $game->result()->delete();
 
-        return back()->with('status', 'Result cleared.');
+        return redirect()
+            ->route('stages.show', [$league, $season, $stage])
+            ->with('status', 'Result cleared.');
     }
 
     /**
