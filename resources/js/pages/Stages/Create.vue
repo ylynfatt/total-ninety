@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { index as leaguesIndex, show as leagueShow } from '@/routes/leagues';
 import { show as seasonShow } from '@/routes/seasons';
 import { store } from '@/routes/stages';
+import type { BreadcrumbItem } from '@/types';
 
 interface LeagueSummary {
     id: number;
@@ -53,6 +55,13 @@ defineOptions({
 
 const selectedFormat = computed(() => props.formats.find((f) => f.value === form.format));
 
+const pageBreadcrumbs = computed<BreadcrumbItem[]>(() => [
+    { title: 'Leagues', href: leaguesIndex().url },
+    { title: props.league.name, href: leagueShow(props.league.slug).url },
+    { title: props.season.name, href: seasonShow([props.league.slug, props.season.id]).url },
+    { title: 'New stage', href: '#' },
+]);
+
 function submit() {
     form.post(store([props.league.slug, props.season.id]).url);
 }
@@ -62,12 +71,9 @@ function submit() {
     <Head :title="`New stage — ${season.name}`" />
 
     <div class="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 sm:p-6">
+        <Breadcrumbs :breadcrumbs="pageBreadcrumbs" />
+
         <header>
-            <p class="text-xs uppercase tracking-wide text-muted-foreground">
-                <Link :href="leagueShow(league.slug).url" class="hover:underline">{{ league.name }}</Link>
-                <span> / </span>
-                <Link :href="seasonShow([league.slug, season.id]).url" class="hover:underline">{{ season.name }}</Link>
-            </p>
             <h1 class="text-2xl font-semibold tracking-tight">New stage</h1>
             <p class="text-sm text-muted-foreground">
                 A stage is a phase of the season — e.g. "Regular Season", "Group Stage", or "Playoffs".

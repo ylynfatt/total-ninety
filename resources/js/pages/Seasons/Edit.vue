@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -7,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { index as leaguesIndex, show as leagueShow } from '@/routes/leagues';
 import { show as seasonShow, update } from '@/routes/seasons';
+import type { BreadcrumbItem } from '@/types';
 
 interface LeagueSummary {
     id: number;
@@ -42,6 +45,13 @@ defineOptions({
     },
 });
 
+const pageBreadcrumbs = computed<BreadcrumbItem[]>(() => [
+    { title: 'Leagues', href: leaguesIndex().url },
+    { title: props.league.name, href: leagueShow(props.league.slug).url },
+    { title: props.season.name, href: seasonShow([props.league.slug, props.season.id]).url },
+    { title: 'Edit', href: '#' },
+]);
+
 function submit() {
     form.put(update([props.league.slug, props.season.id]).url);
 }
@@ -51,11 +61,12 @@ function submit() {
     <Head :title="`Edit ${season.name}`" />
 
     <div class="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 sm:p-6">
+        <Breadcrumbs :breadcrumbs="pageBreadcrumbs" />
+
         <header>
             <h1 class="text-2xl font-semibold tracking-tight">Edit season</h1>
             <p class="text-sm text-muted-foreground">
-                Update <span class="font-medium text-foreground">{{ season.name }}</span> in
-                <Link :href="leagueShow(league.slug).url" class="font-medium text-foreground underline underline-offset-2">{{ league.name }}</Link>.
+                Update <span class="font-medium text-foreground">{{ season.name }}</span> in <span class="font-medium text-foreground">{{ league.name }}</span>.
             </p>
         </header>
 

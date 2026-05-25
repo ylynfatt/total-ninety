@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +9,7 @@ import { index as leaguesIndex, show as leagueShow } from '@/routes/leagues';
 import { destroy, edit as seasonEdit } from '@/routes/seasons';
 import { edit as editTeams } from '@/routes/seasons/teams';
 import { create as createStage, show as stageShow } from '@/routes/stages';
+import type { BreadcrumbItem } from '@/types';
 
 interface LeagueSummary {
     id: number;
@@ -54,6 +57,12 @@ defineOptions({
     },
 });
 
+const pageBreadcrumbs = computed<BreadcrumbItem[]>(() => [
+    { title: 'Leagues', href: leaguesIndex().url },
+    { title: props.league.name, href: leagueShow(props.league.slug).url },
+    { title: props.season.name, href: '#' },
+]);
+
 function deleteSeason() {
     if (!confirm(`Delete season "${props.season.name}"? All stages and games inside it will be deleted too.`)) {
         return;
@@ -66,11 +75,10 @@ function deleteSeason() {
     <Head :title="`${season.name} — ${league.name}`" />
 
     <div class="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6">
+        <Breadcrumbs :breadcrumbs="pageBreadcrumbs" />
+
         <header class="flex flex-wrap items-start justify-between gap-3">
             <div>
-                <p class="text-xs uppercase tracking-wide text-muted-foreground">
-                    <Link :href="leagueShow(league.slug).url" class="hover:underline">{{ league.name }}</Link>
-                </p>
                 <div class="flex items-center gap-2">
                     <h1 class="text-2xl font-semibold tracking-tight">{{ season.name }}</h1>
                     <Badge v-if="season.is_active">Active</Badge>
