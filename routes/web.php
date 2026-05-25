@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\GameFixturesController;
 use App\Http\Controllers\GamesController;
 use App\Http\Controllers\GroupsController;
 use App\Http\Controllers\LeaguesController;
@@ -91,6 +92,29 @@ Route::middleware('auth')->scopeBindings()->group(function () {
     // Team picker for a group, constrained to the parent season's roster.
     Route::get('leagues/{league}/seasons/{season}/stages/{stage}/groups/{group}/teams', [GroupsController::class, 'editTeams'])->name('groups.teams.edit');
     Route::put('leagues/{league}/seasons/{season}/stages/{stage}/groups/{group}/teams', [GroupsController::class, 'syncTeams'])->name('groups.teams.sync');
+});
+
+// Game fixtures inside a stage — schedule editor + result entry.
+Route::middleware('auth')->scopeBindings()->group(function () {
+    Route::get(
+        'leagues/{league}/seasons/{season}/stages/{stage}/games/{game}/edit',
+        [GameFixturesController::class, 'edit']
+    )->name('fixtures.edit');
+
+    Route::patch(
+        'leagues/{league}/seasons/{season}/stages/{stage}/games/{game}/schedule',
+        [GameFixturesController::class, 'updateSchedule']
+    )->name('fixtures.schedule.update');
+
+    Route::put(
+        'leagues/{league}/seasons/{season}/stages/{stage}/games/{game}/result',
+        [GameFixturesController::class, 'storeResult']
+    )->name('fixtures.result.store');
+
+    Route::delete(
+        'leagues/{league}/seasons/{season}/stages/{stage}/games/{game}/result',
+        [GameFixturesController::class, 'destroyResult']
+    )->name('fixtures.result.destroy');
 });
 
 // Legacy Blade-rendered resources — slated for removal in a later phase.
