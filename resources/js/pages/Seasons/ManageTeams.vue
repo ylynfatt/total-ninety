@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { index as leaguesIndex, show as leagueShow } from '@/routes/leagues';
 import { show as seasonShow } from '@/routes/seasons';
 import { sync as syncTeams } from '@/routes/seasons/teams';
+import type { BreadcrumbItem } from '@/types';
 
 interface LeagueSummary {
     id: number;
@@ -43,6 +46,13 @@ defineOptions({
     },
 });
 
+const pageBreadcrumbs = computed<BreadcrumbItem[]>(() => [
+    { title: 'Leagues', href: leaguesIndex().url },
+    { title: props.league.name, href: leagueShow(props.league.slug).url },
+    { title: props.season.name, href: seasonShow([props.league.slug, props.season.id]).url },
+    { title: 'Manage teams', href: '#' },
+]);
+
 function toggle(teamId: number, checked: boolean) {
     if (checked) {
         if (!form.team_ids.includes(teamId)) {
@@ -62,12 +72,9 @@ function submit() {
     <Head :title="`Manage teams — ${season.name}`" />
 
     <div class="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 sm:p-6">
+        <Breadcrumbs :breadcrumbs="pageBreadcrumbs" />
+
         <header>
-            <p class="text-xs uppercase tracking-wide text-muted-foreground">
-                <Link :href="leagueShow(league.slug).url" class="hover:underline">{{ league.name }}</Link>
-                <span> / </span>
-                <Link :href="seasonShow([league.slug, season.id]).url" class="hover:underline">{{ season.name }}</Link>
-            </p>
             <h1 class="text-2xl font-semibold tracking-tight">Manage teams</h1>
             <p class="text-sm text-muted-foreground">
                 Pick the teams that play in this season. Changes save when you click Update.

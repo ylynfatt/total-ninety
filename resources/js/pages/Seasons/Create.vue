@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -7,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { index as leaguesIndex, show as leagueShow } from '@/routes/leagues';
 import { store } from '@/routes/seasons';
+import type { BreadcrumbItem } from '@/types';
 
 interface LeagueSummary {
     id: number;
@@ -33,6 +36,12 @@ defineOptions({
     },
 });
 
+const pageBreadcrumbs = computed<BreadcrumbItem[]>(() => [
+    { title: 'Leagues', href: leaguesIndex().url },
+    { title: props.league.name, href: leagueShow(props.league.slug).url },
+    { title: 'New season', href: '#' },
+]);
+
 function submit() {
     form.post(store(props.league.slug).url);
 }
@@ -42,11 +51,12 @@ function submit() {
     <Head :title="`New season — ${league.name}`" />
 
     <div class="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 sm:p-6">
+        <Breadcrumbs :breadcrumbs="pageBreadcrumbs" />
+
         <header>
             <h1 class="text-2xl font-semibold tracking-tight">New season</h1>
             <p class="text-sm text-muted-foreground">
-                Add a season to
-                <Link :href="leagueShow(league.slug).url" class="font-medium text-foreground underline underline-offset-2">{{ league.name }}</Link>.
+                Add a season to <span class="font-medium text-foreground">{{ league.name }}</span>.
             </p>
         </header>
 

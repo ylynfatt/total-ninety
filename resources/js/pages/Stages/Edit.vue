@@ -4,11 +4,11 @@ import { computed } from 'vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { index as leaguesIndex, show as leagueShow } from '@/routes/leagues';
-import { show as seasonShow, update } from '@/routes/seasons';
+import { show as seasonShow } from '@/routes/seasons';
+import { show as stageShow, update } from '@/routes/stages';
 import type { BreadcrumbItem } from '@/types';
 
 interface LeagueSummary {
@@ -17,25 +17,50 @@ interface LeagueSummary {
     slug: string;
 }
 
-interface Season {
+interface SeasonSummary {
     id: number;
     name: string;
-    starts_on: string;
+}
+
+interface Stage {
+    id: number;
+    name: string;
+    format: string;
+    order: number;
+    starts_on: string | null;
     ends_on: string | null;
-    is_active: boolean;
+    advances_count: number | null;
+}
+
+interface FormatOption {
+    value: string;
+    label: string;
 }
 
 const props = defineProps<{
     league: LeagueSummary;
-    season: Season;
+    season: SeasonSummary;
+    stage: Stage;
+    formats: FormatOption[];
 }>();
 
 const form = useForm({
-    name: props.season.name,
-    starts_on: props.season.starts_on,
-    ends_on: props.season.ends_on ?? '',
-    is_active: props.season.is_active,
+    name: props.stage.name,
+    order: props.stage.order,
+    starts_on: props.stage.starts_on ?? '',
+    ends_on: props.stage.ends_on ?? '',
+    advances_count: props.stage.advances_count,
 });
+
+const formatLabel = props.formats.find((f) => f.value === props.stage.format)?.label ?? props.stage.format;
+
+const pageBreadcrumbs = computed<BreadcrumbItem[]>(() => [
+    { title: 'Leagues', href: leaguesIndex().url },
+    { title: props.league.name, href: leagueShow(props.league.slug).url },
+    { title: props.season.name, href: seasonShow([props.league.slug, props.season.id]).url },
+    { title: props.stage.name, href: stageShow([props.league.slug, props.season.id, props.stage.id]).url },
+    { title: 'Edit', href: '#' },
+]);
 
 defineOptions({
     layout: {
@@ -45,28 +70,21 @@ defineOptions({
     },
 });
 
-const pageBreadcrumbs = computed<BreadcrumbItem[]>(() => [
-    { title: 'Leagues', href: leaguesIndex().url },
-    { title: props.league.name, href: leagueShow(props.league.slug).url },
-    { title: props.season.name, href: seasonShow([props.league.slug, props.season.id]).url },
-    { title: 'Edit', href: '#' },
-]);
-
 function submit() {
-    form.put(update([props.league.slug, props.season.id]).url);
+    form.put(update([props.league.slug, props.season.id, props.stage.id]).url);
 }
 </script>
 
 <template>
-    <Head :title="`Edit ${season.name}`" />
+    <Head :title="`Edit ${stage.name}`" />
 
     <div class="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 sm:p-6">
         <Breadcrumbs :breadcrumbs="pageBreadcrumbs" />
 
         <header>
-            <h1 class="text-2xl font-semibold tracking-tight">Edit season</h1>
+            <h1 class="text-2xl font-semibold tracking-tight">Edit stage</h1>
             <p class="text-sm text-muted-foreground">
-                Update <span class="font-medium text-foreground">{{ season.name }}</span> in <span class="font-medium text-foreground">{{ league.name }}</span>.
+                Format: <span class="font-medium text-foreground">{{ formatLabel }}</span> (locked after creation)
             </p>
         </header>
 
@@ -79,8 +97,8 @@ function submit() {
 
             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div class="grid gap-2">
-                    <Label for="starts_on">Starts on</Label>
-                    <Input id="starts_on" type="date" v-model="form.starts_on" required />
+                    <Label for="starts_on">Starts on (optional)</Label>
+                    <Input id="starts_on" type="date" v-model="form.starts_on" />
                     <InputError :message="form.errors.starts_on" />
                 </div>
 
@@ -91,15 +109,16 @@ function submit() {
                 </div>
             </div>
 
-            <div class="flex items-center gap-2">
-                <Checkbox id="is_active" v-model="form.is_active" />
-                <Label for="is_active" class="cursor-pointer">This is the active season</Label>
+            <div class="grid gap-2">
+                <Label for="order">Order</Label>
+                <Input id="order" type="number" min="0" max="65535" v-model="form.order" />
+                <InputError :message="form.errors.order" />
             </div>
 
             <div class="flex items-center gap-3">
                 <Button type="submit" :disabled="form.processing">Save changes</Button>
                 <Button type="button" variant="ghost" as-child>
-                    <Link :href="seasonShow([league.slug, season.id]).url">Cancel</Link>
+                    <Link :href="stageShow([league.slug, season.id, stage.id]).url">Cancel</Link>
                 </Button>
             </div>
         </form>

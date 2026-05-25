@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { destroy, edit, index, show } from '@/routes/leagues';
 import { create as createSeason, show as seasonShow } from '@/routes/seasons';
+import type { BreadcrumbItem } from '@/types';
 
 interface Season {
     id: number;
@@ -37,10 +40,14 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Leagues', href: index().url },
-            { title: '', href: '' }, // populated dynamically below
         ],
     },
 });
+
+const pageBreadcrumbs = computed<BreadcrumbItem[]>(() => [
+    { title: 'Leagues', href: index().url },
+    { title: props.league.name, href: '#' },
+]);
 
 function deleteLeague() {
     if (!confirm(`Delete league "${props.league.name}"? This cannot be undone.`)) {
@@ -54,6 +61,8 @@ function deleteLeague() {
     <Head :title="league.name" />
 
     <div class="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6">
+        <Breadcrumbs :breadcrumbs="pageBreadcrumbs" />
+
         <header class="flex flex-wrap items-start justify-between gap-3">
             <div>
                 <div class="flex items-center gap-2">
