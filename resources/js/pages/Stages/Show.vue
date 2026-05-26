@@ -2,6 +2,7 @@
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
+import StandingsTable from '@/components/StandingsTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,15 +68,62 @@ interface Stage {
     games: Game[];
 }
 
+interface StandingRow {
+    team_id: number;
+    team_name: string;
+    team_acronym: string;
+    played: number;
+    won: number;
+    drawn: number;
+    lost: number;
+    goals_for: number;
+    goals_against: number;
+    goal_difference: number;
+    points: number;
+    form: string;
+}
+
+interface OverallStandings {
+    overall: StandingRow[];
+}
+
+interface GroupedStandingsEntry {
+    group: { id: number; name: string };
+    rows: StandingRow[];
+}
+
+// PHP serializes the per-group standings as an object keyed by group id
+// (since they're string keys). Vue/TS sees that as Record<string, ...>.
+type Standings = OverallStandings | Record<string, GroupedStandingsEntry> | null;
+
 const props = defineProps<{
     league: LeagueSummary;
     season: SeasonSummary;
     stage: Stage;
+    standings: Standings;
     can: {
         update: boolean;
         delete: boolean;
     };
 }>();
+
+const overallStandings = computed<StandingRow[] | null>(() => {
+    if (props.standings && 'overall' in props.standings) {
+        return props.standings.overall;
+    }
+    return null;
+});
+
+const groupedStandings = computed<GroupedStandingsEntry[] | null>(() => {
+    if (props.standings && !('overall' in props.standings)) {
+        // Preserve group order by following stage.groups
+        const map = props.standings as Record<string, GroupedStandingsEntry>;
+        return props.stage.groups
+            .map((g) => map[String(g.id)])
+            .filter((entry): entry is GroupedStandingsEntry => entry !== undefined);
+    }
+    return null;
+});
 
 defineOptions({
     layout: {
@@ -193,6 +241,35 @@ function deleteGroup(group: Group) {
                         </div>
                     </li>
                 </ul>
+            </CardContent>
+        </Card>
+
+        <!-- Standings (ungrouped) -->
+        <Card v-if="overallStandings">
+            <CardHeader>
+                <CardTitle class="text-base">Standings</CardTitle>
+                <CardDescription>
+                    Recomputed from the games above. Teams without any decided games still appear at the bottom.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <StandingsTable :rows="overallStandings" />
+            </CardContent>
+        </Card>
+
+        <!-- Standings (grouped: one table per group) -->
+        <Card v-if="groupedStandings">
+            <CardHeader>
+                <CardTitle class="text-base">Standings</CardTitle>
+                <CardDescription>One table per group.</CardDescription>
+            </CardHeader>
+            <CardContent class="flex flex-col gap-6">
+                <section v-for="entry in groupedStandings" :key="entry.group.id" class="flex flex-col gap-2">
+                    <h3 class="text-sm font-semibold tracking-wide text-muted-foreground">
+                        {{ entry.group.name }}
+                    </h3>
+                    <StandingsTable :rows="entry.rows" />
+                </section>
             </CardContent>
         </Card>
 
