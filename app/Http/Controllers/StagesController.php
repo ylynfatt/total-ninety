@@ -51,6 +51,7 @@ class StagesController extends Controller
             'games' => fn ($q) => $q->orderBy('match_date'),
             'games.homeTeam:id,name,acronym',
             'games.awayTeam:id,name,acronym',
+            'games.result',
         ]);
 
         return Inertia::render('Stages/Show', [
