@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\GenerateFixtures;
+use App\Domain\Standings\StandingsRegistry;
 use App\Enums\StageFormat;
 use App\Http\Requests\StoreStageRequest;
 use App\Http\Requests\UpdateStageRequest;
@@ -40,7 +41,7 @@ class StagesController extends Controller
             ->with('status', "Stage \"{$stage->name}\" created.");
     }
 
-    public function show(League $league, Season $season, Stage $stage): Response
+    public function show(League $league, Season $season, Stage $stage, StandingsRegistry $standings): Response
     {
         $this->ensureSeasonInLeague($league, $season);
         $this->ensureStageInSeason($season, $stage);
@@ -48,21 +49,64 @@ class StagesController extends Controller
 
         $stage->load([
             'groups' => fn ($q) => $q->withCount('teams'),
+            'groups.teams:id,name,acronym',
             'games' => fn ($q) => $q->orderBy('match_date'),
             'games.homeTeam:id,name,acronym',
             'games.awayTeam:id,name,acronym',
             'games.result',
+            'season.teams:id,name,acronym',
         ]);
 
         return Inertia::render('Stages/Show', [
             'league' => $league->only(['id', 'name', 'slug']),
             'season' => $season->only(['id', 'name']),
             'stage' => $stage,
+            'standings' => $this->buildStandings($stage, $standings),
             'can' => [
                 'update' => request()->user()?->can('update', $stage) ?? false,
                 'delete' => request()->user()?->can('delete', $stage) ?? false,
             ],
         ]);
+    }
+
+    /**
+     * Resolve the standings payload for this stage.
+     *
+     *   - Bracket formats: null (no table; the UI shows a bracket later).
+     *   - Ungrouped table formats (RoundRobin Single/Double): one StandingRow[]
+     *     under the `overall` key.
+     *   - Grouped table formats (GroupStage / Conference): per-group
+     *     StandingRow[] keyed by group id.
+     *
+     * @return null|array{overall: array<int, array<string, mixed>>}|array<string, array{group: array{id:int, name:string}, rows: array<int, array<string, mixed>>}>
+     */
+    private function buildStandings(Stage $stage, StandingsRegistry $standings): ?array
+    {
+        if (! $standings->supports($stage->format)) {
+            return null;
+        }
+
+        $calculator = $standings->for($stage->format);
+
+        if ($stage->format->hasGroups()) {
+            $byGroup = [];
+            foreach ($stage->groups as $group) {
+                $byGroup[(string) $group->id] = [
+                    'group' => ['id' => $group->id, 'name' => $group->name],
+                    'rows' => $calculator->calculate($stage, $group)
+                        ->map(fn ($row) => $row->toArray())
+                        ->all(),
+                ];
+            }
+
+            return $byGroup === [] ? null : $byGroup;
+        }
+
+        return [
+            'overall' => $calculator->calculate($stage)
+                ->map(fn ($row) => $row->toArray())
+                ->all(),
+        ];
     }
 
     public function edit(League $league, Season $season, Stage $stage): Response
