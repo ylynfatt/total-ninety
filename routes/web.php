@@ -5,6 +5,7 @@ use App\Http\Controllers\GroupsController;
 use App\Http\Controllers\LeaguesController;
 use App\Http\Controllers\SeasonsController;
 use App\Http\Controllers\StagesController;
+use App\Http\Controllers\TeamsController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
@@ -113,6 +114,24 @@ Route::middleware('auth')->scopeBindings()->group(function () {
         'leagues/{league}/seasons/{season}/stages/{stage}/games/{game}/result',
         [GameFixturesController::class, 'destroyResult']
     )->name('fixtures.result.destroy');
+});
+
+// Teams — public viewing (index/show), authenticated mutation.
+// Same create-before-show ordering trick as /leagues.
+Route::get('teams', [TeamsController::class, 'index'])->name('teams.index');
+
+Route::middleware('auth')->group(function () {
+    Route::get('teams/create', [TeamsController::class, 'create'])->name('teams.create');
+    Route::post('teams', [TeamsController::class, 'store'])->name('teams.store');
+});
+
+Route::get('teams/{team}', [TeamsController::class, 'show'])->name('teams.show');
+
+Route::middleware('auth')->group(function () {
+    Route::get('teams/{team}/edit', [TeamsController::class, 'edit'])->name('teams.edit');
+    Route::put('teams/{team}', [TeamsController::class, 'update'])->name('teams.update');
+    Route::patch('teams/{team}', [TeamsController::class, 'update']);
+    Route::delete('teams/{team}', [TeamsController::class, 'destroy'])->name('teams.destroy');
 });
 
 require __DIR__.'/settings.php';
