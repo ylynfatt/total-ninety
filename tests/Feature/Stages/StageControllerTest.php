@@ -4,6 +4,7 @@ use App\Enums\StageFormat;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\League;
+use App\Models\Result;
 use App\Models\Season;
 use App\Models\Stage;
 use App\Models\Team;
@@ -138,6 +139,79 @@ describe('StagesController show / update / destroy', function () {
             ->assertRedirect("/leagues/{$league->slug}/seasons/{$season->id}");
 
         expect(Stage::find($stage->id))->toBeNull();
+    });
+});
+
+describe('StagesController show — standings prop', function () {
+    it('attaches an overall standings table for ungrouped table formats', function () {
+        [$league, $season] = leagueSeasonWithTeams(2);
+        $stage = Stage::factory()->create([
+            'season_id' => $season->id,
+            'format' => StageFormat::RoundRobinSingle,
+        ]);
+
+        // One 2-1 game so the table actually has numbers to assert against.
+        $home = $season->teams->first();
+        $away = $season->teams->last();
+        $game = Game::factory()->create([
+            'stage_id' => $stage->id,
+            'season_id' => $season->id,
+            'home_team_id' => $home->id,
+            'away_team_id' => $away->id,
+        ]);
+        Result::factory()->create([
+            'game_id' => $game->id,
+            'home_team_score' => 2,
+            'away_team_score' => 1,
+        ]);
+
+        $this->get("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}")
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Stages/Show')
+                ->has('standings.overall', 2)
+                ->where('standings.overall.0.team_id', $home->id)
+                ->where('standings.overall.0.points', 3)
+                ->where('standings.overall.1.team_id', $away->id)
+                ->where('standings.overall.1.points', 0)
+            );
+    });
+
+    it('attaches per-group standings keyed by group id for GroupStage', function () {
+        $league = League::factory()->create();
+        $season = Season::factory()->create(['league_id' => $league->id]);
+        $stage = Stage::factory()->groupStage()->create(['season_id' => $season->id]);
+
+        $groupA = Group::factory()->create(['stage_id' => $stage->id]);
+        $teamsA = Team::factory()->count(2)->create();
+        $season->teams()->attach($teamsA);
+        $groupA->teams()->attach($teamsA);
+
+        $groupB = Group::factory()->create(['stage_id' => $stage->id]);
+        $teamsB = Team::factory()->count(2)->create();
+        $season->teams()->attach($teamsB);
+        $groupB->teams()->attach($teamsB);
+
+        $this->get("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}")
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Stages/Show')
+                ->has("standings.{$groupA->id}.rows", 2)
+                ->has("standings.{$groupB->id}.rows", 2)
+                ->where("standings.{$groupA->id}.group.name", $groupA->name)
+            );
+    });
+
+    it('passes null standings for bracket formats', function () {
+        [$league, $season] = leagueSeasonWithTeams(8);
+        $stage = Stage::factory()->singleElimination()->create(['season_id' => $season->id]);
+
+        $this->get("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}")
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Stages/Show')
+                ->where('standings', null)
+            );
     });
 });
 
