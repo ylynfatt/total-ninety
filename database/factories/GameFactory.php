@@ -2,11 +2,13 @@
 
 namespace Database\Factories;
 
+use App\Enums\GameStatus;
+use App\Models\Game;
 use App\Models\Team;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Game>
+ * @extends Factory<Game>
  */
 class GameFactory extends Factory
 {
@@ -28,6 +30,23 @@ class GameFactory extends Factory
             'away_team_id' => Team::factory(),
             'match_date' => $this->faker->dateTimeBetween('now', '+6 months'),
             'location' => $this->faker->randomElement($locations),
+            'status' => GameStatus::Scheduled,
+            'current_minute' => null,
         ];
+    }
+
+    public function live(int $minute = 23): self
+    {
+        return $this->state(['status' => GameStatus::Live, 'current_minute' => $minute]);
+    }
+
+    public function halfTime(): self
+    {
+        return $this->state(['status' => GameStatus::HalfTime, 'current_minute' => 45]);
+    }
+
+    public function fullTime(): self
+    {
+        return $this->state(['status' => GameStatus::FullTime, 'current_minute' => 90]);
     }
 }
