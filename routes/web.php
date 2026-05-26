@@ -1,12 +1,10 @@
 <?php
 
 use App\Http\Controllers\GameFixturesController;
-use App\Http\Controllers\GamesController;
 use App\Http\Controllers\GroupsController;
 use App\Http\Controllers\LeaguesController;
 use App\Http\Controllers\SeasonsController;
 use App\Http\Controllers\StagesController;
-use App\Http\Controllers\TeamsController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
@@ -116,9 +114,5 @@ Route::middleware('auth')->scopeBindings()->group(function () {
         [GameFixturesController::class, 'destroyResult']
     )->name('fixtures.result.destroy');
 });
-
-// Legacy Blade-rendered resources — slated for removal in a later phase.
-Route::resource('teams', TeamsController::class);
-Route::resource('games', GamesController::class);
 
 require __DIR__.'/settings.php';

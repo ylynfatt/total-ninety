@@ -16,15 +16,15 @@ use Inertia\Response;
 /**
  * Manage a single Game (fixture) within a stage.
  *
- * Phase 5e introduces three flows on top of a generated fixture:
- *   1. Schedule  — set match_date + location
+ * Three flows on top of a generated fixture:
+ *   1. Schedule        — set match_date + location
  *   2. Record a result — store home/away scores in the Result table
  *   3. Clear a result  — wipe the Result row for a game (e.g. a played-game
- *      entry that needs to be undone)
+ *                        entry that needs to be undone)
  *
- * Generic game CRUD (create/delete) intentionally lives on the legacy
- * GamesController for now — Phase 5e is about editing the *fixtures* that
- * GenerateFixtures produces, not creating ad-hoc games.
+ * Games are created exclusively via the GenerateFixtures action — there is
+ * no ad-hoc game-create UI in the Inertia tree. If we ever need that, it'd
+ * be a separate, owner-gated flow.
  */
 class GameFixturesController extends Controller
 {
