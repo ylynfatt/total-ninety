@@ -3,6 +3,7 @@
 use App\Http\Controllers\GameFixturesController;
 use App\Http\Controllers\GroupsController;
 use App\Http\Controllers\LeaguesController;
+use App\Http\Controllers\ScoreboardController;
 use App\Http\Controllers\SeasonsController;
 use App\Http\Controllers\StagesController;
 use App\Http\Controllers\TeamsController;
@@ -13,6 +14,9 @@ Route::inertia('/', 'Welcome')->name('home');
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
 });
+
+// Public live scoreboard — all in-progress games across every league.
+Route::get('scoreboard', [ScoreboardController::class, 'index'])->name('scoreboard.index');
 
 // Leagues — public viewing (index/show), authenticated mutation.
 // Slug-based route-model binding via League::getRouteKeyName().
