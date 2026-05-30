@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Enums\GameEventType;
+use App\Observers\GameEventObserver;
 use Database\Factories\GameEventFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+#[ObservedBy(GameEventObserver::class)]
 class GameEvent extends Model
 {
     /** @use HasFactory<GameEventFactory> */
