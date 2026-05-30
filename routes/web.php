@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\GamecastController;
 use App\Http\Controllers\GameFixturesController;
 use App\Http\Controllers\GroupsController;
 use App\Http\Controllers\LeaguesController;
@@ -96,6 +97,12 @@ Route::middleware('auth')->scopeBindings()->group(function () {
     Route::get('leagues/{league}/seasons/{season}/stages/{stage}/groups/{group}/teams', [GroupsController::class, 'editTeams'])->name('groups.teams.edit');
     Route::put('leagues/{league}/seasons/{season}/stages/{stage}/groups/{group}/teams', [GroupsController::class, 'syncTeams'])->name('groups.teams.sync');
 });
+
+// Public gamecast for a single fixture — live score + event timeline.
+Route::get(
+    'leagues/{league}/seasons/{season}/stages/{stage}/games/{game}',
+    [GamecastController::class, 'show']
+)->scopeBindings()->name('games.show');
 
 // Game fixtures inside a stage — schedule editor + result entry.
 Route::middleware('auth')->scopeBindings()->group(function () {

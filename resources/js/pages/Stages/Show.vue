@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { edit as editFixture } from '@/routes/fixtures';
+import { show as gamecastShow } from '@/routes/games';
 import { create as createGroup, destroy as destroyGroup, edit as editGroup } from '@/routes/groups';
 import { edit as editGroupTeams } from '@/routes/groups/teams';
 import { index as leaguesIndex, show as leagueShow } from '@/routes/leagues';
@@ -313,6 +314,12 @@ function deleteGroup(group: Group) {
                         <span class="text-xs text-muted-foreground tabular-nums">
                             {{ game.match_date ? game.match_date.slice(0, 10) : 'TBD' }}
                         </span>
+                        <Link
+                            :href="gamecastShow([league.slug, season.id, stage.id, game.id]).url"
+                            class="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
+                        >
+                            Gamecast
+                        </Link>
                         <Link
                             v-if="can.update"
                             :href="editFixture([league.slug, season.id, stage.id, game.id]).url"
