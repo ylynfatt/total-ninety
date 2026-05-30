@@ -2,11 +2,14 @@
 
 namespace App\Observers;
 
+use App\Concerns\BroadcastsQuietly;
 use App\Events\GameStatusChanged;
 use App\Models\Game;
 
 class GameObserver
 {
+    use BroadcastsQuietly;
+
     /**
      * Broadcast a status transition — but only when `status` actually
      * changed. A plain schedule edit (date/location) updates the game too,
@@ -16,7 +19,7 @@ class GameObserver
     public function updated(Game $game): void
     {
         if ($game->wasChanged('status')) {
-            GameStatusChanged::dispatch($game);
+            $this->broadcastQuietly(fn () => GameStatusChanged::dispatch($game));
         }
     }
 }
