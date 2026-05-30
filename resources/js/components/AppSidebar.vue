@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { BookOpen, FolderGit2, LayoutGrid, Trophy, Users } from 'lucide-vue-next';
+import { BookOpen, FolderGit2, LayoutGrid, Radio, Trophy, Users } from 'lucide-vue-next';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
 import { index as leaguesIndex } from '@/routes/leagues';
+import { index as scoreboardIndex } from '@/routes/scoreboard';
 import { index as teamsIndex } from '@/routes/teams';
 import type { NavItem } from '@/types';
 
@@ -34,6 +35,11 @@ const mainNavItems: NavItem[] = [
         title: 'Teams',
         href: teamsIndex(),
         icon: Users,
+    },
+    {
+        title: 'Scoreboard',
+        href: scoreboardIndex(),
+        icon: Radio,
     },
 ];
 
