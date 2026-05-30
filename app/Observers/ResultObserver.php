@@ -2,11 +2,14 @@
 
 namespace App\Observers;
 
+use App\Concerns\BroadcastsQuietly;
 use App\Events\ScoreUpdated;
 use App\Models\Result;
 
 class ResultObserver
 {
+    use BroadcastsQuietly;
+
     /**
      * Fire ScoreUpdated whenever a result is created or its scores change.
      *
@@ -25,7 +28,7 @@ class ResultObserver
         // than a stale relation cached on the game.
         $game->setRelation('result', $result);
 
-        ScoreUpdated::dispatch($game);
+        $this->broadcastQuietly(fn () => ScoreUpdated::dispatch($game));
     }
 
     /**
@@ -43,6 +46,6 @@ class ResultObserver
 
         $game->setRelation('result', null);
 
-        ScoreUpdated::dispatch($game);
+        $this->broadcastQuietly(fn () => ScoreUpdated::dispatch($game));
     }
 }
