@@ -58,8 +58,10 @@ class GenerateFixtures
             'season_id' => $stage->season_id,
             'stage_id' => $stage->id,
             'group_id' => $pair['group_id'] ?? null,
-            'home_team_id' => $pair['home_team_id'],
-            'away_team_id' => $pair['away_team_id'],
+            'home_team_id' => $pair['home_team_id'] ?? null,
+            'away_team_id' => $pair['away_team_id'] ?? null,
+            'round' => $pair['round'] ?? null,
+            'bracket_position' => $pair['bracket_position'] ?? null,
         ])));
     }
 }
