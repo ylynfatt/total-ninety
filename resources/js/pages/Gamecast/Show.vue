@@ -203,21 +203,24 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
                 No events recorded yet.
             </div>
 
-            <ol v-else class="relative space-y-2">
+            <ol v-else class="relative space-y-1">
                 <li v-for="event in timelineEvents" :key="event.id">
-                    <!-- Neutral / lifecycle events run down the middle. -->
+                    <!-- Neutral / lifecycle events are dividers between phases. -->
                     <div
                         v-if="!event.side"
-                        class="flex flex-wrap items-center justify-center gap-x-2 text-xs uppercase tracking-wide text-muted-foreground"
+                        class="flex items-center gap-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                     >
-                        <span class="text-base leading-none">{{ eventGlyphs[event.type] ?? '•' }}</span>
-                        <span class="font-semibold">{{ event.type_label }}</span>
-                        <span v-if="eventMinute(event)" class="tabular-nums">{{ eventMinute(event) }}</span>
-                        <span v-if="event.description" class="basis-full text-center normal-case">{{ event.description }}</span>
+                        <span class="h-px flex-1 bg-border" />
+                        <span class="flex items-center gap-1.5">
+                            <span class="text-sm leading-none">{{ eventGlyphs[event.type] ?? '•' }}</span>
+                            {{ event.type_label }}
+                            <span v-if="eventMinute(event)" class="tabular-nums">· {{ eventMinute(event) }}</span>
+                        </span>
+                        <span class="h-px flex-1 bg-border" />
                     </div>
 
-                    <!-- Team events sit on their own side, scores hugging the center spine. -->
-                    <div v-else class="grid grid-cols-[1fr_2.5rem_1fr] items-start gap-2 rounded-md py-1 hover:bg-muted/40">
+                    <!-- Team events sit on their own side around a shared center rail. -->
+                    <div v-else class="grid grid-cols-[1fr_3rem_1fr] items-center gap-2 rounded-md py-1.5 hover:bg-muted/40">
                         <div
                             class="flex min-w-0 flex-col text-sm"
                             :class="event.side === 'home' ? 'col-start-1 items-end text-right' : 'col-start-3 items-start text-left'"
@@ -234,9 +237,9 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
                             <div v-if="event.description" class="text-muted-foreground">{{ event.description }}</div>
                         </div>
 
-                        <div class="col-start-2 flex flex-col items-center">
-                            <span class="text-lg leading-none">{{ eventGlyphs[event.type] ?? '•' }}</span>
-                            <span class="text-xs font-semibold tabular-nums text-muted-foreground">{{ eventMinute(event) }}</span>
+                        <div class="col-start-2 flex flex-col items-center leading-none">
+                            <span class="text-lg">{{ eventGlyphs[event.type] ?? '•' }}</span>
+                            <span class="mt-0.5 text-xs font-semibold tabular-nums text-muted-foreground">{{ eventMinute(event) }}</span>
                         </div>
                     </div>
                 </li>
