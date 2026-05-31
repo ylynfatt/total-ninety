@@ -191,6 +191,78 @@ describe('RoundRobinStandingsCalculator (ungrouped)', function () {
 
         expect($rows[$home->id]->form)->toBe('LWLDW');
     });
+
+    it('breaks a two-way points tie by head-to-head, ahead of goal difference', function () {
+        [$stage, $teams] = ungroupedStage(4);
+        [$a, $b, $c, $d] = $teams;
+
+        // Name the head-to-head winner LAST alphabetically and give it the
+        // WORSE goal difference, so only head-to-head can put it on top.
+        $a->update(['name' => 'Zebra FC']); // h2h winner, GD +2
+        $b->update(['name' => 'Ant FC']);   // h2h loser, GD +5
+        $c->update(['name' => 'Crow FC']);
+        $d->update(['name' => 'Dingo FC']);
+
+        playedGame($stage, $a, $b, 1, 0); // Zebra beats Ant head-to-head
+        playedGame($stage, $a, $c, 1, 0); // Zebra: 6 pts, GD +2
+        playedGame($stage, $b, $c, 1, 0);
+        playedGame($stage, $b, $d, 5, 0); // Ant: 6 pts, GD +5
+
+        $rows = (new RoundRobinStandingsCalculator)
+            ->calculate($stage->fresh(['season.teams', 'games.result']));
+
+        // Both on 6; head-to-head (Zebra won the meeting) outranks Ant's better GD.
+        expect($rows->take(2)->pluck('team_name')->all())->toBe(['Zebra FC', 'Ant FC']);
+    });
+
+    it('resolves a three-way tie with a mini-table over only those teams games', function () {
+        [$stage, $teams] = ungroupedStage(4);
+        [$p, $q, $r, $s] = $teams;
+
+        $p->update(['name' => 'P FC']);
+        $q->update(['name' => 'Q FC']);
+        $r->update(['name' => 'R FC']);
+        $s->update(['name' => 'S FC']);
+
+        // Mini-table among P/Q/R: P beats both, Q beats R, R loses both.
+        playedGame($stage, $p, $q, 1, 0);
+        playedGame($stage, $p, $r, 1, 0);
+        playedGame($stage, $q, $r, 1, 0);
+
+        // Pad everyone to 6 points via games vs S, while giving R a huge GD so
+        // goal difference would (wrongly) rank R first if h2h were ignored.
+        playedGame($stage, $q, $s, 1, 0); // Q → 6 pts
+        playedGame($stage, $r, $s, 5, 0);
+        playedGame($stage, $r, $s, 5, 0); // R → 6 pts, GD +8
+
+        $rows = (new RoundRobinStandingsCalculator)
+            ->calculate($stage->fresh(['season.teams', 'games.result']));
+
+        // P, Q, R all on 6; the mini-table among them orders P > Q > R despite
+        // R holding the best overall goal difference.
+        expect($rows->take(3)->pluck('team_name')->all())->toBe(['P FC', 'Q FC', 'R FC']);
+    });
+
+    it('falls through to goal difference when the head-to-head is level', function () {
+        [$stage, $teams] = ungroupedStage(3);
+        [$a, $b, $c] = $teams;
+
+        // Name so that alphabetical order disagrees with the GD order, proving
+        // GD (not name) is the decider once h2h is level.
+        $a->update(['name' => 'Yak FC']); // better GD
+        $b->update(['name' => 'Box FC']); // worse GD, earlier name
+        $c->update(['name' => 'Cat FC']);
+
+        playedGame($stage, $a, $b, 1, 1); // level head-to-head
+        playedGame($stage, $a, $c, 3, 0); // Yak GD +3
+        playedGame($stage, $b, $c, 1, 0); // Box GD +1
+
+        $rows = (new RoundRobinStandingsCalculator)
+            ->calculate($stage->fresh(['season.teams', 'games.result']));
+
+        // Both on 4 points with a drawn head-to-head → GD breaks it for Yak.
+        expect($rows->take(2)->pluck('team_name')->all())->toBe(['Yak FC', 'Box FC']);
+    });
 });
 
 describe('RoundRobinStandingsCalculator (grouped)', function () {
