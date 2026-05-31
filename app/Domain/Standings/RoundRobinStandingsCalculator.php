@@ -19,9 +19,10 @@ use Illuminate\Support\Collection;
  * order from stage.config['tiebreakers']. Default tiebreakers, in priority
  * order:
  *   1. points    — more points first
- *   2. gd        — better goal difference first
- *   3. gf        — more goals scored first
- *   4. name      — alphabetical (stable tiebreak)
+ *   2. h2h       — head-to-head record among the tied teams (see below)
+ *   3. gd        — better goal difference first
+ *   4. gf        — more goals scored first
+ *   5. name      — alphabetical (stable tiebreak)
  *
  * Points per outcome are also configurable via stage.config:
  *   - points_per_win  (default 3)
@@ -33,13 +34,16 @@ use Illuminate\Support\Collection;
  * is on the left. Games without a recorded result are skipped — only
  * decided games count.
  *
- * Head-to-head tiebreaking is intentionally NOT implemented in this PR.
- * It's a richer rule (build a mini-table over only the tied teams' games)
- * and will land separately if the user community needs it.
+ * Head-to-head: when teams are level on the preceding criteria, a mini-table
+ * is built from ONLY the games among exactly those tied teams, ranked by
+ * mini-table points, then mini goal difference, then mini goals for. A 3+ way
+ * tie that only partially resolves lets the still-level teams fall through to
+ * the remaining tiebreakers — so ranking is a recursive, grouped sort rather
+ * than a pairwise comparison (which can't resolve non-transitive cycles).
  */
 class RoundRobinStandingsCalculator implements StandingsCalculator
 {
-    private const DEFAULT_TIEBREAKERS = ['points', 'gd', 'gf', 'name'];
+    private const DEFAULT_TIEBREAKERS = ['points', 'h2h', 'gd', 'gf', 'name'];
 
     /**
      * @return Collection<int, StandingRow>
@@ -140,8 +144,11 @@ class RoundRobinStandingsCalculator implements StandingsCalculator
             ));
         }
 
-        return $rows->sort(fn (StandingRow $a, StandingRow $b) => $this->compareRows($a, $b, $tiebreakers))
-            ->values();
+        return $this->rankRows($rows, $tiebreakers, $decided, [
+            'win' => $pointsWin,
+            'draw' => $pointsDraw,
+            'loss' => $pointsLoss,
+        ]);
     }
 
     /**
@@ -176,24 +183,128 @@ class RoundRobinStandingsCalculator implements StandingsCalculator
     }
 
     /**
+     * Rank rows by applying the tiebreakers in order. At each level the rows
+     * are sorted by that criterion, then any still-tied subgroup is ranked
+     * recursively by the remaining criteria. This is what lets head-to-head
+     * operate on exactly the set of currently-tied teams and lets a partially
+     * resolved 3+ way tie fall through to the next rule.
+     *
+     * @param  Collection<int, StandingRow>  $rows
      * @param  array<int, string>  $tiebreakers
+     * @param  Collection<int, Game>  $decided
+     * @param  array{win: int, draw: int, loss: int}  $points
+     * @return Collection<int, StandingRow>
      */
-    private function compareRows(StandingRow $a, StandingRow $b, array $tiebreakers): int
+    private function rankRows(Collection $rows, array $tiebreakers, Collection $decided, array $points): Collection
     {
-        foreach ($tiebreakers as $rule) {
-            $cmp = match ($rule) {
-                'points' => $b->points <=> $a->points,
-                'gd' => $b->goal_difference <=> $a->goal_difference,
-                'gf' => $b->goals_for <=> $a->goals_for,
-                'name' => strcasecmp($a->team_name, $b->team_name),
+        if ($rows->count() <= 1 || $tiebreakers === []) {
+            return $rows->values();
+        }
+
+        $rule = $tiebreakers[0];
+        $rest = array_slice($tiebreakers, 1);
+
+        // A key extractor and a comparator for the current rule. Comparators
+        // return negative when $a should rank ahead of $b.
+        if ($rule === 'h2h') {
+            $mini = $this->headToHead($rows->pluck('team_id')->all(), $decided, $points);
+            $keyOf = fn (StandingRow $row): array => [
+                $mini[$row->team_id]['points'],
+                $mini[$row->team_id]['goals_for'] - $mini[$row->team_id]['goals_against'],
+                $mini[$row->team_id]['goals_for'],
+            ];
+            $compare = fn (array $a, array $b): int => ($b[0] <=> $a[0]) ?: ($b[1] <=> $a[1]) ?: ($b[2] <=> $a[2]);
+        } elseif ($rule === 'name') {
+            $keyOf = fn (StandingRow $row): string => $row->team_name;
+            $compare = fn (string $a, string $b): int => strcasecmp($a, $b);
+        } else {
+            $keyOf = fn (StandingRow $row): int => match ($rule) {
+                'points' => $row->points,
+                'gd' => $row->goal_difference,
+                'gf' => $row->goals_for,
                 default => 0,
             };
+            $compare = fn (int $a, int $b): int => $b <=> $a;
+        }
 
-            if ($cmp !== 0) {
-                return $cmp;
+        $sorted = $rows
+            ->sort(fn (StandingRow $a, StandingRow $b): int => $compare($keyOf($a), $keyOf($b)))
+            ->values();
+
+        // Walk the sorted rows, gathering runs of equal-key rows and ranking
+        // each run by the remaining tiebreakers.
+        $ranked = collect();
+        $bucket = collect();
+        $bucketKey = null;
+
+        foreach ($sorted as $row) {
+            $key = $keyOf($row);
+
+            if ($bucket->isEmpty() || $compare($key, $bucketKey) === 0) {
+                $bucket->push($row);
+                $bucketKey = $key;
+
+                continue;
+            }
+
+            $ranked = $ranked->concat($this->rankRows($bucket, $rest, $decided, $points));
+            $bucket = collect([$row]);
+            $bucketKey = $key;
+        }
+
+        if ($bucket->isNotEmpty()) {
+            $ranked = $ranked->concat($this->rankRows($bucket, $rest, $decided, $points));
+        }
+
+        return $ranked->values();
+    }
+
+    /**
+     * Build a head-to-head mini-table over only the games played among the
+     * given teams. Returns per-team points / goals_for / goals_against.
+     *
+     * @param  array<int, int>  $teamIds
+     * @param  Collection<int, Game>  $decided
+     * @param  array{win: int, draw: int, loss: int}  $points
+     * @return array<int, array{points: int, goals_for: int, goals_against: int}>
+     */
+    private function headToHead(array $teamIds, Collection $decided, array $points): array
+    {
+        $inGroup = array_flip($teamIds);
+
+        $mini = [];
+        foreach ($teamIds as $id) {
+            $mini[$id] = ['points' => 0, 'goals_for' => 0, 'goals_against' => 0];
+        }
+
+        foreach ($decided as $game) {
+            $home = $game->home_team_id;
+            $away = $game->away_team_id;
+
+            if (! isset($inGroup[$home], $inGroup[$away])) {
+                continue;
+            }
+
+            $hs = (int) $game->result->home_team_score;
+            $as = (int) $game->result->away_team_score;
+
+            $mini[$home]['goals_for'] += $hs;
+            $mini[$home]['goals_against'] += $as;
+            $mini[$away]['goals_for'] += $as;
+            $mini[$away]['goals_against'] += $hs;
+
+            if ($hs > $as) {
+                $mini[$home]['points'] += $points['win'];
+                $mini[$away]['points'] += $points['loss'];
+            } elseif ($hs < $as) {
+                $mini[$away]['points'] += $points['win'];
+                $mini[$home]['points'] += $points['loss'];
+            } else {
+                $mini[$home]['points'] += $points['draw'];
+                $mini[$away]['points'] += $points['draw'];
             }
         }
 
-        return 0;
+        return $mini;
     }
 }
