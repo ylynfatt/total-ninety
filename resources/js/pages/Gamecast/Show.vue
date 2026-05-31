@@ -4,6 +4,7 @@ import { useEchoPublic } from '@laravel/echo-vue';
 import { computed, ref, watch } from 'vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import GamecastEditor from '@/components/GamecastEditor.vue';
+import { formatDate } from '@/lib/datetime';
 import { show as leagueShow } from '@/routes/leagues';
 import { show as stageShow } from '@/routes/stages';
 import type { BreadcrumbItem } from '@/types';
@@ -170,7 +171,11 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
                 </div>
             </div>
 
-            <p v-if="game.location" class="mt-4 text-center text-xs text-muted-foreground">{{ game.location }}</p>
+            <p v-if="game.match_date || game.location" class="mt-4 text-center text-xs text-muted-foreground">
+                <span v-if="game.match_date">{{ formatDate(game.match_date) }}</span>
+                <span v-if="game.match_date && game.location"> · </span>
+                <span v-if="game.location">{{ game.location }}</span>
+            </p>
         </div>
 
         <!-- Owner controls -->
