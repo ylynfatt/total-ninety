@@ -67,6 +67,11 @@ watch(
     },
 );
 
+// Commentary is narration, not a match event — it gets its own feed below the
+// timeline. Everything else stays on the timeline.
+const timelineEvents = computed(() => props.events.filter((event) => event.type !== 'commentary'));
+const commentaryEvents = computed(() => props.events.filter((event) => event.type === 'commentary'));
+
 const statusLabels: Record<string, string> = {
     scheduled: 'Scheduled',
     live: 'Live',
@@ -194,12 +199,12 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
         <section>
             <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Timeline</h2>
 
-            <div v-if="events.length === 0" class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+            <div v-if="timelineEvents.length === 0" class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
                 No events recorded yet.
             </div>
 
             <ol v-else class="relative space-y-2">
-                <li v-for="event in events" :key="event.id">
+                <li v-for="event in timelineEvents" :key="event.id">
                     <!-- Neutral / lifecycle events run down the middle. -->
                     <div
                         v-if="!event.side"
@@ -236,6 +241,20 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
                     </div>
                 </li>
             </ol>
+        </section>
+
+        <!-- Commentary -->
+        <section v-if="commentaryEvents.length > 0">
+            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Commentary</h2>
+
+            <ul class="space-y-2">
+                <li v-for="event in commentaryEvents" :key="event.id" class="flex gap-3 rounded-md border bg-card p-3 text-sm shadow-sm">
+                    <span v-if="eventMinute(event)" class="w-10 shrink-0 text-right font-semibold tabular-nums text-muted-foreground">
+                        {{ eventMinute(event) }}
+                    </span>
+                    <p class="min-w-0 flex-1">{{ event.description }}</p>
+                </li>
+            </ul>
         </section>
 
         <Link :href="leagueShow(league.slug).url" class="text-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
