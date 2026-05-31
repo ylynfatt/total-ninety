@@ -26,6 +26,8 @@ class GamecastController extends Controller
     {
         $this->ensureChain($league, $season, $stage, $game);
 
+        $canUpdate = request()->user()?->can('update', $game) ?? false;
+
         $game->load([
             'homeTeam:id,name,acronym',
             'awayTeam:id,name,acronym',
@@ -53,7 +55,38 @@ class GamecastController extends Controller
                 'away_team_score' => $game->result?->away_team_score,
             ],
             'events' => $game->events->map(fn (GameEvent $event): array => $this->transformEvent($event))->all(),
+            'can' => ['update' => $canUpdate],
+            // Rosters power the editor's player pickers; only the owner needs
+            // them, so public viewers don't pay for the extra query/payload.
+            'rosters' => $canUpdate ? $this->rosters($game) : null,
         ]);
+    }
+
+    /**
+     * Home/away squads for the event editor's player dropdowns.
+     *
+     * @return array<string, mixed>
+     */
+    private function rosters(Game $game): array
+    {
+        $shape = fn (?int $teamId): array => [
+            'team_id' => $teamId,
+            'players' => $teamId === null ? [] : Player::query()
+                ->where('team_id', $teamId)
+                ->orderBy('last_name')
+                ->get(['id', 'first_name', 'last_name', 'shirt_number'])
+                ->map(fn (Player $player): array => [
+                    'id' => $player->id,
+                    'name' => $this->playerName($player),
+                    'shirt_number' => $player->shirt_number,
+                ])
+                ->all(),
+        ];
+
+        return [
+            'home' => $shape($game->home_team_id),
+            'away' => $shape($game->away_team_id),
+        ];
     }
 
     /**

@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { useEchoPublic } from '@laravel/echo-vue';
 import { computed, ref, watch } from 'vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
+import GamecastEditor from '@/components/GamecastEditor.vue';
 import { show as leagueShow } from '@/routes/leagues';
 import { show as stageShow } from '@/routes/stages';
 import type { BreadcrumbItem } from '@/types';
@@ -40,12 +41,19 @@ interface GamecastEvent {
     description: string | null;
 }
 
+interface Roster {
+    team_id: number | null;
+    players: { id: number; name: string; shirt_number: number | null }[];
+}
+
 const props = defineProps<{
     league: { id: number; name: string; slug: string };
     season: { id: number; name: string };
     stage: { id: number; name: string };
     game: GamecastGame;
     events: GamecastEvent[];
+    can: { update: boolean };
+    rosters: { home: Roster; away: Roster } | null;
 }>();
 
 const game = ref<GamecastGame>({ ...props.game });
@@ -164,6 +172,17 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
 
             <p v-if="game.location" class="mt-4 text-center text-xs text-muted-foreground">{{ game.location }}</p>
         </div>
+
+        <!-- Owner controls -->
+        <GamecastEditor
+            v-if="can.update && rosters"
+            :route-args="{ league: league.slug, season: season.id, stage: stage.id, game: game.id }"
+            :status="game.status"
+            :current-minute="game.current_minute"
+            :home-team="game.home_team"
+            :away-team="game.away_team"
+            :rosters="rosters"
+        />
 
         <!-- Timeline -->
         <section>

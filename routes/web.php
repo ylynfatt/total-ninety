@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\GamecastController;
+use App\Http\Controllers\GameControlController;
 use App\Http\Controllers\GameFixturesController;
 use App\Http\Controllers\GroupsController;
 use App\Http\Controllers\LeaguesController;
@@ -125,6 +126,17 @@ Route::middleware('auth')->scopeBindings()->group(function () {
         'leagues/{league}/seasons/{season}/stages/{stage}/games/{game}/result',
         [GameFixturesController::class, 'destroyResult']
     )->name('fixtures.result.destroy');
+
+    // Live gamecast controls — status transitions + timeline event entry.
+    Route::patch(
+        'leagues/{league}/seasons/{season}/stages/{stage}/games/{game}/status',
+        [GameControlController::class, 'updateStatus']
+    )->name('games.status.update');
+
+    Route::post(
+        'leagues/{league}/seasons/{season}/stages/{stage}/games/{game}/events',
+        [GameControlController::class, 'storeEvent']
+    )->name('games.events.store');
 });
 
 // Teams — public viewing (index/show), authenticated mutation.
