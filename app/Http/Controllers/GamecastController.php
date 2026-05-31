@@ -54,7 +54,7 @@ class GamecastController extends Controller
                 'home_team_score' => $game->result?->home_team_score,
                 'away_team_score' => $game->result?->away_team_score,
             ],
-            'events' => $game->events->map(fn (GameEvent $event): array => $this->transformEvent($event))->all(),
+            'events' => $game->events->map(fn (GameEvent $event): array => $this->transformEvent($event, $game))->all(),
             'can' => ['update' => $canUpdate],
             // Rosters power the editor's player pickers; only the owner needs
             // them, so public viewers don't pay for the extra query/payload.
@@ -94,7 +94,7 @@ class GamecastController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function transformEvent(GameEvent $event): array
+    private function transformEvent(GameEvent $event, Game $game): array
     {
         return [
             'id' => $event->id,
@@ -104,11 +104,28 @@ class GamecastController extends Controller
             'type_label' => $event->type->label(),
             'is_scoring' => $event->type->isScoringEvent(),
             'team_acronym' => $event->team?->acronym,
+            // Which side of the timeline the event belongs to. Null = neutral
+            // (kick-off, half/full time, unattributed commentary) and renders
+            // centered.
+            'side' => $this->eventSide($event, $game),
             'player_name' => $this->playerName($event->player),
             'assist_player_name' => $this->playerName($event->assistPlayer),
             'secondary_player_name' => $this->playerName($event->secondaryPlayer),
             'description' => $event->description,
         ];
+    }
+
+    private function eventSide(GameEvent $event, Game $game): ?string
+    {
+        if ($event->team_id === null) {
+            return null;
+        }
+
+        return match ($event->team_id) {
+            $game->home_team_id => 'home',
+            $game->away_team_id => 'away',
+            default => null,
+        };
     }
 
     private function playerName(?Player $player): ?string

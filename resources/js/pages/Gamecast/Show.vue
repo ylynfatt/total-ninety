@@ -36,6 +36,7 @@ interface GamecastEvent {
     type_label: string;
     is_scoring: boolean;
     team_acronym: string | null;
+    side: 'home' | 'away' | null;
     player_name: string | null;
     assist_player_name: string | null;
     secondary_player_name: string | null;
@@ -197,21 +198,41 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
                 No events recorded yet.
             </div>
 
-            <ol v-else class="space-y-1">
-                <li v-for="event in events" :key="event.id" class="flex items-start gap-3 rounded-md px-2 py-2 hover:bg-muted/40">
-                    <span class="w-10 shrink-0 text-right text-sm font-semibold tabular-nums text-muted-foreground">{{ eventMinute(event) }}</span>
-                    <span class="shrink-0 text-lg leading-tight">{{ eventGlyphs[event.type] ?? '•' }}</span>
-                    <div class="min-w-0 flex-1 text-sm">
-                        <div class="font-medium">
-                            {{ event.type_label }}
-                            <span v-if="event.team_acronym" class="text-muted-foreground">· {{ event.team_acronym }}</span>
+            <ol v-else class="relative space-y-2">
+                <li v-for="event in events" :key="event.id">
+                    <!-- Neutral / lifecycle events run down the middle. -->
+                    <div
+                        v-if="!event.side"
+                        class="flex flex-wrap items-center justify-center gap-x-2 text-xs uppercase tracking-wide text-muted-foreground"
+                    >
+                        <span class="text-base leading-none">{{ eventGlyphs[event.type] ?? '•' }}</span>
+                        <span class="font-semibold">{{ event.type_label }}</span>
+                        <span v-if="eventMinute(event)" class="tabular-nums">{{ eventMinute(event) }}</span>
+                        <span v-if="event.description" class="basis-full text-center normal-case">{{ event.description }}</span>
+                    </div>
+
+                    <!-- Team events sit on their own side, scores hugging the center spine. -->
+                    <div v-else class="grid grid-cols-[1fr_2.5rem_1fr] items-start gap-2 rounded-md py-1 hover:bg-muted/40">
+                        <div
+                            class="flex min-w-0 flex-col text-sm"
+                            :class="event.side === 'home' ? 'col-start-1 items-end text-right' : 'col-start-3 items-start text-left'"
+                        >
+                            <div :class="event.is_scoring ? 'font-semibold' : 'font-medium'">
+                                {{ event.type_label }}
+                                <span v-if="event.team_acronym" class="text-muted-foreground">· {{ event.team_acronym }}</span>
+                            </div>
+                            <div v-if="event.player_name" class="text-muted-foreground">
+                                {{ event.player_name }}
+                                <template v-if="event.type === 'substitution' && event.secondary_player_name">→ {{ event.secondary_player_name }}</template>
+                                <template v-else-if="event.assist_player_name">(assist: {{ event.assist_player_name }})</template>
+                            </div>
+                            <div v-if="event.description" class="text-muted-foreground">{{ event.description }}</div>
                         </div>
-                        <div v-if="event.player_name" class="text-muted-foreground">
-                            {{ event.player_name }}
-                            <template v-if="event.type === 'substitution' && event.secondary_player_name">→ {{ event.secondary_player_name }}</template>
-                            <template v-else-if="event.assist_player_name">(assist: {{ event.assist_player_name }})</template>
+
+                        <div class="col-start-2 flex flex-col items-center">
+                            <span class="text-lg leading-none">{{ eventGlyphs[event.type] ?? '•' }}</span>
+                            <span class="text-xs font-semibold tabular-nums text-muted-foreground">{{ eventMinute(event) }}</span>
                         </div>
-                        <div v-if="event.description" class="text-muted-foreground">{{ event.description }}</div>
                     </div>
                 </li>
             </ol>
