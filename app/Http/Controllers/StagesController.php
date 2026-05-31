@@ -7,6 +7,7 @@ use App\Domain\Standings\StandingsRegistry;
 use App\Enums\StageFormat;
 use App\Http\Requests\StoreStageRequest;
 use App\Http\Requests\UpdateStageRequest;
+use App\Models\Game;
 use App\Models\League;
 use App\Models\Season;
 use App\Models\Stage;
@@ -62,6 +63,7 @@ class StagesController extends Controller
             'season' => $season->only(['id', 'name']),
             'stage' => $stage,
             'standings' => $this->buildStandings($stage, $standings),
+            'bracket' => $stage->format->isBracket() ? $this->buildBracket($stage) : null,
             'can' => [
                 'update' => request()->user()?->can('update', $stage) ?? false,
                 'delete' => request()->user()?->can('delete', $stage) ?? false,
@@ -107,6 +109,69 @@ class StagesController extends Controller
                 ->map(fn ($row) => $row->toArray())
                 ->all(),
         ];
+    }
+
+    /**
+     * Shape the knockout games into ordered rounds for the bracket view. Each
+     * round carries a human label (Final / Semifinals / …) derived from its
+     * slot count and its games sorted by bracket_position.
+     *
+     * @return null|array<int, array{round: int, label: string, games: array<int, array<string, mixed>>}>
+     */
+    private function buildBracket(Stage $stage): ?array
+    {
+        $byRound = $stage->games
+            ->whereNotNull('round')
+            ->sortBy([['round', 'asc'], ['bracket_position', 'asc']])
+            ->groupBy('round');
+
+        if ($byRound->isEmpty()) {
+            return null;
+        }
+
+        return $byRound
+            ->map(fn ($games, $round) => [
+                'round' => (int) $round,
+                'label' => $this->roundLabel($games->count()),
+                'games' => $games->values()->map(fn ($game) => [
+                    'id' => $game->id,
+                    'bracket_position' => $game->bracket_position,
+                    'home_team' => $game->homeTeam?->only(['id', 'name', 'acronym']),
+                    'away_team' => $game->awayTeam?->only(['id', 'name', 'acronym']),
+                    'home_team_score' => $game->result?->home_team_score,
+                    'away_team_score' => $game->result?->away_team_score,
+                    'status' => $game->status->value,
+                    'winner' => $this->winnerSide($game),
+                ])->all(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * 'home' / 'away' once a game is decided, otherwise null.
+     */
+    private function winnerSide(Game $game): ?string
+    {
+        $result = $game->result;
+
+        if ($result === null || $result->home_team_score === $result->away_team_score) {
+            return null;
+        }
+
+        return $result->home_team_score > $result->away_team_score ? 'home' : 'away';
+    }
+
+    private function roundLabel(int $gameCount): string
+    {
+        return match ($gameCount) {
+            1 => 'Final',
+            2 => 'Semifinals',
+            4 => 'Quarterfinals',
+            8 => 'Round of 16',
+            16 => 'Round of 32',
+            default => 'Round of '.($gameCount * 2),
+        };
     }
 
     public function edit(League $league, Season $season, Stage $stage): Response

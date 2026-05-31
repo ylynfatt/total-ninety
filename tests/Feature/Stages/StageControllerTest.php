@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\GenerateFixtures;
 use App\Enums\StageFormat;
 use App\Models\Game;
 use App\Models\Group;
@@ -211,6 +212,54 @@ describe('StagesController show — standings prop', function () {
             ->assertInertia(fn ($page) => $page
                 ->component('Stages/Show')
                 ->where('standings', null)
+            );
+    });
+});
+
+describe('StagesController show — bracket prop', function () {
+    it('is null for table formats', function () {
+        [$league, $season] = leagueSeasonWithTeams(4);
+        $stage = Stage::factory()->create([
+            'season_id' => $season->id,
+            'format' => StageFormat::RoundRobinSingle,
+        ]);
+
+        $this->get("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}")
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('bracket', null));
+    });
+
+    it('groups knockout games into labelled rounds', function () {
+        [$league, $season] = leagueSeasonWithTeams(8);
+        $stage = Stage::factory()->singleElimination()->create(['season_id' => $season->id]);
+
+        app(GenerateFixtures::class)->execute($stage);
+
+        $this->get("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}")
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('bracket', 3) // QF, SF, F
+                ->where('bracket.0.label', 'Quarterfinals')
+                ->has('bracket.0.games', 4)
+                ->where('bracket.1.label', 'Semifinals')
+                ->has('bracket.1.games', 2)
+                ->where('bracket.2.label', 'Final')
+                ->has('bracket.2.games', 1)
+            );
+    });
+
+    it('marks the winning side once a tie is decided', function () {
+        [$league, $season] = leagueSeasonWithTeams(2);
+        $stage = Stage::factory()->singleElimination()->create(['season_id' => $season->id]);
+
+        app(GenerateFixtures::class)->execute($stage);
+        $final = Game::where('stage_id', $stage->id)->where('round', 1)->first();
+        Result::factory()->create(['game_id' => $final->id, 'home_team_score' => 2, 'away_team_score' => 0]);
+
+        $this->get("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}")
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('bracket.0.games.0.winner', 'home')
             );
     });
 });
