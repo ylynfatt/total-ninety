@@ -67,6 +67,11 @@ watch(
     },
 );
 
+// Commentary is narration, not a match event — it gets its own feed below the
+// timeline. Everything else stays on the timeline.
+const timelineEvents = computed(() => props.events.filter((event) => event.type !== 'commentary'));
+const commentaryEvents = computed(() => props.events.filter((event) => event.type === 'commentary'));
+
 const statusLabels: Record<string, string> = {
     scheduled: 'Scheduled',
     live: 'Live',
@@ -194,25 +199,28 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
         <section>
             <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Timeline</h2>
 
-            <div v-if="events.length === 0" class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+            <div v-if="timelineEvents.length === 0" class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
                 No events recorded yet.
             </div>
 
-            <ol v-else class="relative space-y-2">
-                <li v-for="event in events" :key="event.id">
-                    <!-- Neutral / lifecycle events run down the middle. -->
+            <ol v-else class="relative space-y-1">
+                <li v-for="event in timelineEvents" :key="event.id">
+                    <!-- Neutral / lifecycle events are dividers between phases. -->
                     <div
                         v-if="!event.side"
-                        class="flex flex-wrap items-center justify-center gap-x-2 text-xs uppercase tracking-wide text-muted-foreground"
+                        class="flex items-center gap-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                     >
-                        <span class="text-base leading-none">{{ eventGlyphs[event.type] ?? '•' }}</span>
-                        <span class="font-semibold">{{ event.type_label }}</span>
-                        <span v-if="eventMinute(event)" class="tabular-nums">{{ eventMinute(event) }}</span>
-                        <span v-if="event.description" class="basis-full text-center normal-case">{{ event.description }}</span>
+                        <span class="h-px flex-1 bg-border" />
+                        <span class="flex items-center gap-1.5">
+                            <span class="text-sm leading-none">{{ eventGlyphs[event.type] ?? '•' }}</span>
+                            {{ event.type_label }}
+                            <span v-if="eventMinute(event)" class="tabular-nums">· {{ eventMinute(event) }}</span>
+                        </span>
+                        <span class="h-px flex-1 bg-border" />
                     </div>
 
-                    <!-- Team events sit on their own side, scores hugging the center spine. -->
-                    <div v-else class="grid grid-cols-[1fr_2.5rem_1fr] items-start gap-2 rounded-md py-1 hover:bg-muted/40">
+                    <!-- Team events sit on their own side around a shared center rail. -->
+                    <div v-else class="grid grid-cols-[1fr_3rem_1fr] items-center gap-2 rounded-md py-1.5 hover:bg-muted/40">
                         <div
                             class="flex min-w-0 flex-col text-sm"
                             :class="event.side === 'home' ? 'col-start-1 items-end text-right' : 'col-start-3 items-start text-left'"
@@ -229,13 +237,27 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
                             <div v-if="event.description" class="text-muted-foreground">{{ event.description }}</div>
                         </div>
 
-                        <div class="col-start-2 flex flex-col items-center">
-                            <span class="text-lg leading-none">{{ eventGlyphs[event.type] ?? '•' }}</span>
-                            <span class="text-xs font-semibold tabular-nums text-muted-foreground">{{ eventMinute(event) }}</span>
+                        <div class="col-start-2 flex flex-col items-center leading-none">
+                            <span class="text-lg">{{ eventGlyphs[event.type] ?? '•' }}</span>
+                            <span class="mt-0.5 text-xs font-semibold tabular-nums text-muted-foreground">{{ eventMinute(event) }}</span>
                         </div>
                     </div>
                 </li>
             </ol>
+        </section>
+
+        <!-- Commentary -->
+        <section v-if="commentaryEvents.length > 0">
+            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Commentary</h2>
+
+            <ul class="space-y-2">
+                <li v-for="event in commentaryEvents" :key="event.id" class="flex gap-3 rounded-md border bg-card p-3 text-sm shadow-sm">
+                    <span v-if="eventMinute(event)" class="w-10 shrink-0 text-right font-semibold tabular-nums text-muted-foreground">
+                        {{ eventMinute(event) }}
+                    </span>
+                    <p class="min-w-0 flex-1">{{ event.description }}</p>
+                </li>
+            </ul>
         </section>
 
         <Link :href="leagueShow(league.slug).url" class="text-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
