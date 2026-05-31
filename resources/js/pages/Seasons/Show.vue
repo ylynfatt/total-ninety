@@ -5,6 +5,7 @@ import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatDateRange } from '@/lib/datetime';
 import { index as leaguesIndex, show as leagueShow } from '@/routes/leagues';
 import { destroy, edit as seasonEdit } from '@/routes/seasons';
 import { edit as editTeams } from '@/routes/seasons/teams';
@@ -67,6 +68,7 @@ function deleteSeason() {
     if (!confirm(`Delete season "${props.season.name}"? All stages and games inside it will be deleted too.`)) {
         return;
     }
+
     router.delete(destroy([props.league.slug, props.season.id]).url);
 }
 </script>
@@ -84,7 +86,7 @@ function deleteSeason() {
                     <Badge v-if="season.is_active">Active</Badge>
                 </div>
                 <p class="text-sm text-muted-foreground">
-                    {{ season.starts_on }}<span v-if="season.ends_on"> &mdash; {{ season.ends_on }}</span>
+                    {{ formatDateRange(season.starts_on, season.ends_on) }}
                 </p>
             </div>
             <div class="flex gap-2">

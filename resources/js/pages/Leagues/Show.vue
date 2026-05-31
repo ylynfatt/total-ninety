@@ -5,6 +5,7 @@ import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatDateRange } from '@/lib/datetime';
 import { destroy, edit, index, show } from '@/routes/leagues';
 import { create as createSeason, show as seasonShow } from '@/routes/seasons';
 import type { BreadcrumbItem } from '@/types';
@@ -53,6 +54,7 @@ function deleteLeague() {
     if (!confirm(`Delete league "${props.league.name}"? This cannot be undone.`)) {
         return;
     }
+
     router.delete(destroy(props.league.slug).url);
 }
 </script>
@@ -117,7 +119,7 @@ function deleteLeague() {
                                 <Badge v-if="season.is_active">Active</Badge>
                             </div>
                             <CardDescription>
-                                {{ season.starts_on }}<span v-if="season.ends_on"> &mdash; {{ season.ends_on }}</span>
+                                {{ formatDateRange(season.starts_on, season.ends_on) }}
                             </CardDescription>
                         </CardHeader>
                     </Card>

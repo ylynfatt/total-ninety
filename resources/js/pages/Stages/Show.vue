@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import Bracket from '@/components/Bracket.vue';
+import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import StandingsTable from '@/components/StandingsTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatDate, formatDateRange } from '@/lib/datetime';
 import { edit as editFixture } from '@/routes/fixtures';
 import { show as gamecastShow } from '@/routes/games';
 import { create as createGroup, destroy as destroyGroup, edit as editGroup } from '@/routes/groups';
@@ -129,6 +130,7 @@ const overallStandings = computed<StandingRow[] | null>(() => {
     if (props.standings && 'overall' in props.standings) {
         return props.standings.overall;
     }
+
     return null;
 });
 
@@ -136,10 +138,12 @@ const groupedStandings = computed<GroupedStandingsEntry[] | null>(() => {
     if (props.standings && !('overall' in props.standings)) {
         // Preserve group order by following stage.groups
         const map = props.standings as Record<string, GroupedStandingsEntry>;
+
         return props.stage.groups
             .map((g) => map[String(g.id)])
             .filter((entry): entry is GroupedStandingsEntry => entry !== undefined);
     }
+
     return null;
 });
 
@@ -181,6 +185,7 @@ function deleteStage() {
     if (!confirm(`Delete stage "${props.stage.name}"? All groups and games in this stage will be deleted too.`)) {
         return;
     }
+
     router.delete(destroy([props.league.slug, props.season.id, props.stage.id]).url);
 }
 
@@ -188,6 +193,7 @@ function deleteGroup(group: Group) {
     if (!confirm(`Delete group "${group.name}"? Any games already in this group will become unassigned (but won't be deleted).`)) {
         return;
     }
+
     router.delete(destroyGroup([props.league.slug, props.season.id, props.stage.id, group.id]).url);
 }
 </script>
@@ -205,7 +211,7 @@ function deleteGroup(group: Group) {
                     <Badge variant="secondary">{{ stage.format.replace(/_/g, ' ') }}</Badge>
                 </div>
                 <p v-if="stage.starts_on || stage.ends_on" class="text-sm text-muted-foreground">
-                    {{ stage.starts_on }}<span v-if="stage.ends_on"> &mdash; {{ stage.ends_on }}</span>
+                    {{ formatDateRange(stage.starts_on, stage.ends_on) }}
                 </p>
             </div>
             <div class="flex gap-2">
@@ -340,7 +346,7 @@ function deleteGroup(group: Group) {
                         <span v-else class="text-xs text-muted-foreground">vs</span>
                         <span class="flex-1">{{ game.away_team?.name ?? '—' }}</span>
                         <span class="text-xs text-muted-foreground tabular-nums">
-                            {{ game.match_date ? game.match_date.slice(0, 10) : 'TBD' }}
+                            {{ game.match_date ? formatDate(game.match_date) : 'TBD' }}
                         </span>
                         <Link
                             :href="gamecastShow([league.slug, season.id, stage.id, game.id]).url"
