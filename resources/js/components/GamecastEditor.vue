@@ -43,6 +43,17 @@ const statusForm = useForm<{ status: string; current_minute: number | null }>({
     current_minute: props.currentMinute,
 });
 
+const statusLabels: Record<string, string> = {
+    scheduled: 'Scheduled',
+    live: 'Live',
+    half_time: 'Half Time',
+    full_time: 'Full Time',
+    postponed: 'Postponed',
+    cancelled: 'Cancelled',
+};
+
+const currentStatusLabel = computed(() => statusLabels[props.status] ?? props.status);
+
 const statusActions: { label: string; status: string; variant?: 'default' | 'outline' | 'destructive' | 'secondary' }[] = [
     { label: 'Kick Off', status: 'live' },
     { label: 'Half Time', status: 'half_time', variant: 'secondary' },
@@ -138,7 +149,7 @@ function submitEvent(): void {
                     <Label for="minute">Minute</Label>
                     <Input id="minute" v-model.number="minute" type="number" min="0" max="200" placeholder="—" />
                 </div>
-                <p class="pb-2 text-sm text-muted-foreground">Current: <span class="font-medium text-foreground">{{ status }}</span></p>
+                <p class="pb-2 text-sm text-muted-foreground">Current: <span class="font-medium text-foreground">{{ currentStatusLabel }}</span></p>
             </div>
 
             <div class="flex flex-wrap gap-2">
