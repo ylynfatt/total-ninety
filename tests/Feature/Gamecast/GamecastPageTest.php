@@ -92,6 +92,30 @@ describe('GamecastController show', function () {
             );
     });
 
+    it('tags each event with the side it belongs to', function () {
+        $league = League::factory()->create();
+        $season = Season::factory()->for($league)->create();
+        $stage = Stage::factory()->for($season)->create();
+        $home = Team::factory()->create();
+        $away = Team::factory()->create();
+        $game = Game::factory()->for($season)->for($stage)->create([
+            'home_team_id' => $home->id,
+            'away_team_id' => $away->id,
+        ]);
+
+        GameEvent::factory()->for($game)->goal()->create(['minute' => 10, 'team_id' => $home->id]);
+        GameEvent::factory()->for($game)->goal()->create(['minute' => 20, 'team_id' => $away->id]);
+        GameEvent::factory()->for($game)->create(['type' => GameEventType::HalfTime, 'minute' => 45, 'team_id' => null]);
+
+        $this->get(gamecastUrl($league, $season, $stage, $game))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('events.0.side', 'home')
+                ->where('events.1.side', 'away')
+                ->where('events.2.side', null)
+            );
+    });
+
     it('404s when the game does not belong to the stage chain', function () {
         [$league, $season, $stage] = gamecastChain();
         $otherGame = Game::factory()->create();
