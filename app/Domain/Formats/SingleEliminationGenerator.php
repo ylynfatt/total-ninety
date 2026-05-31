@@ -9,27 +9,32 @@ use Illuminate\Support\Collection;
 /**
  * Single-elimination bracket: lose once and you're out.
  *
- * Phase 3c only emits **round-1** fixtures. Later rounds get populated as
- * results come in — the gamecast/results workflow knows how to advance
- * winners into the next slot. This keeps the generator deterministic and
- * the data model simple (no placeholder "winner of game X" rows).
+ * Emits the **entire** bracket up front so the structure is renderable and
+ * navigable from the moment fixtures are generated:
  *
- * Bracket sizing: for n teams, the smallest power of two ≥ n is the
- * bracket capacity. The number of byes is (capacity - n). Round 1 plays
- * (n - capacity/2) games — i.e., enough games to thin the field down to
- * capacity/2 teams for round 2.
+ *   - Round 1 holds only the contested games (both teams known). Teams that
+ *     draw a bye skip round 1 and are seeded directly into their round-2 slot.
+ *   - Rounds 2…final are created as placeholder games whose teams are TBD
+ *     (null), to be filled by winners as results come in. Round-2 slots fed by
+ *     a bye are pre-populated.
  *
- * For powers of 2 (n in {2, 4, 8, 16, …}), there are no byes and round 1
- * has n/2 games.
+ * Coordinates: each game carries `round` (1 = opening round, highest = final)
+ * and `bracket_position` (0-based slot within the round). The winner of round
+ * r positions 2p and 2p+1 advances to round r+1 position p — the slot parity
+ * (even → home, odd → away) tells advancement which side to fill.
  *
- * Pairing: lowest seed (first in input) plays highest seed (last in input),
- * second-lowest plays second-highest, and so on. The top (n - capacity/2)
- * seeds receive byes — they sit out round 1 entirely.
+ * Bracket sizing: capacity = the smallest power of two ≥ n. byes = capacity − n
+ * (always < capacity/2, so no round-1 game has two byes). Total games across
+ * all rounds equals n − 1 — exactly the number needed to crown one winner.
+ *
+ * Seeding: standard bracket seeding so the top two seeds can only meet in the
+ * final. Lowest seed (first in input) is strongest; phantom seeds beyond n are
+ * the byes and fall to the strongest real seeds.
  */
 class SingleEliminationGenerator implements FixtureGenerator
 {
     /**
-     * @return Collection<int, array{home_team_id: int, away_team_id: int, group_id: int|null}>
+     * @return Collection<int, array{home_team_id: int|null, away_team_id: int|null, group_id: null, round: int, bracket_position: int}>
      */
     public function generate(Stage $stage): Collection
     {
@@ -50,37 +55,80 @@ class SingleEliminationGenerator implements FixtureGenerator
             );
         }
 
-        // Round-1 game count: thin the field from n teams to capacity/2
-        // teams. Each game eliminates one team.
-        $round1Games = $n - ($capacity / 2);
+        $rounds = (int) log($capacity, 2);
+        $seedOrder = self::seedOrder($rounds);
 
-        // Teams that play in round 1: the lowest seeds. The top `$byes`
-        // seeds skip round 1.
-        $playing = $teams->slice($byes)->values();
+        $teamForSeed = fn (int $seed): ?int => $seed <= $n ? $teams[$seed - 1]->id : null;
 
-        $pairs = collect();
-        $left = 0;
-        $right = $playing->count() - 1;
+        $games = collect();
 
-        while ($left < $right) {
-            $pairs->push([
-                'home_team_id' => $playing[$left]->id,
-                'away_team_id' => $playing[$right]->id,
-                'group_id' => null,
-            ]);
+        // Bye teams are seeded directly into their round-2 slot:
+        // [round2Position][slot 0=home|1=away] => team_id.
+        $round2Fill = [];
 
-            $left++;
-            $right--;
+        $round1Slots = intdiv($capacity, 2);
+
+        for ($position = 0; $position < $round1Slots; $position++) {
+            $homeId = $teamForSeed($seedOrder[2 * $position]);
+            $awayId = $teamForSeed($seedOrder[2 * $position + 1]);
+
+            if ($homeId !== null && $awayId !== null) {
+                $games->push([
+                    'home_team_id' => $homeId,
+                    'away_team_id' => $awayId,
+                    'group_id' => null,
+                    'round' => 1,
+                    'bracket_position' => $position,
+                ]);
+
+                continue;
+            }
+
+            // Exactly one side is a bye — the real team advances to round 2.
+            $round2Fill[intdiv($position, 2)][$position % 2] = $homeId ?? $awayId;
         }
 
-        // Sanity check — should match $round1Games exactly.
-        if ($pairs->count() !== (int) $round1Games) {
-            throw new DomainException(
-                "SingleElimination math error: produced {$pairs->count()} games but expected {$round1Games}."
-            );
+        for ($round = 2; $round <= $rounds; $round++) {
+            $slots = intdiv($capacity, 2 ** $round);
+
+            for ($position = 0; $position < $slots; $position++) {
+                $games->push([
+                    'home_team_id' => $round === 2 ? ($round2Fill[$position][0] ?? null) : null,
+                    'away_team_id' => $round === 2 ? ($round2Fill[$position][1] ?? null) : null,
+                    'group_id' => null,
+                    'round' => $round,
+                    'bracket_position' => $position,
+                ]);
+            }
         }
 
-        return $pairs;
+        return $games;
+    }
+
+    /**
+     * Standard bracket seed ordering for a 2^rounds-team bracket. Returns
+     * 1-based seeds laid out so consecutive pairs (0,1), (2,3)… are the
+     * round-1 matchups, with seed 1 and seed 2 in opposite halves.
+     *
+     * @return array<int, int>
+     */
+    private static function seedOrder(int $rounds): array
+    {
+        $seeds = [1, 2];
+
+        for ($round = 2; $round <= $rounds; $round++) {
+            $size = 2 ** $round;
+            $next = [];
+
+            foreach ($seeds as $seed) {
+                $next[] = $seed;
+                $next[] = $size + 1 - $seed;
+            }
+
+            $seeds = $next;
+        }
+
+        return $seeds;
     }
 
     /**

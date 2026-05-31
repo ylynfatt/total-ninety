@@ -241,7 +241,7 @@ describe('StagesController generateFixtures', function () {
         expect(Game::where('stage_id', $stage->id)->count())->toBe(12);
     });
 
-    it('persists round-1 bracket games for SingleElimination', function () {
+    it('persists the full bracket for SingleElimination', function () {
         [$league, $season] = leagueSeasonWithTeams(8);
         $stage = Stage::factory()->singleElimination()->create(['season_id' => $season->id]);
 
@@ -249,7 +249,8 @@ describe('StagesController generateFixtures', function () {
             ->post("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}/generate-fixtures")
             ->assertRedirect();
 
-        expect(Game::where('stage_id', $stage->id)->count())->toBe(4);
+        // 8 teams → n-1 = 7 games across QF/SF/F.
+        expect(Game::where('stage_id', $stage->id)->count())->toBe(7);
     });
 
     it('surfaces "already has fixtures" as a session error on re-run', function () {

@@ -85,14 +85,17 @@ describe('GenerateFixtures action', function () {
         expect(Game::where('group_id', $groupB->id)->count())->toBe(3);
     });
 
-    it('persists round-1 bracket games for a SingleElimination stage', function () {
-        // 8 teams → 4 round-1 games, no byes, no groups
+    it('persists the full bracket for a SingleElimination stage', function () {
+        // 8 teams → full bracket of n-1 = 7 games across 3 rounds, no groups
         [$season, $stage] = seasonWithTeams(8, StageFormat::SingleElimination);
 
         $games = app(GenerateFixtures::class)->execute($stage);
 
-        expect($games)->toHaveCount(4);
-        expect(Game::where('stage_id', $stage->id)->whereNull('group_id')->count())->toBe(4);
+        expect($games)->toHaveCount(7);
+        expect(Game::where('stage_id', $stage->id)->whereNull('group_id')->count())->toBe(7);
+        // Round 1 is fully populated; the final (round 3) is a TBD placeholder.
+        expect(Game::where('stage_id', $stage->id)->where('round', 1)->count())->toBe(4);
+        expect(Game::where('stage_id', $stage->id)->where('round', 3)->whereNull('home_team_id')->count())->toBe(1);
     });
 
     it('persists conference + cross-conference games when configured', function () {

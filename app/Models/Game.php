@@ -22,6 +22,8 @@ class Game extends Model
         'group_id',
         'home_team_id',
         'away_team_id',
+        'round',
+        'bracket_position',
         'match_date',
         'location',
         'status',
@@ -34,6 +36,8 @@ class Game extends Model
             'match_date' => 'datetime',
             'status' => GameStatus::class,
             'current_minute' => 'integer',
+            'round' => 'integer',
+            'bracket_position' => 'integer',
         ];
     }
 
