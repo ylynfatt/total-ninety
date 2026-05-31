@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Actions\AdvanceBracketWinner;
 use App\Concerns\BroadcastsQuietly;
 use App\Events\ScoreUpdated;
 use App\Models\Result;
@@ -9,6 +10,8 @@ use App\Models\Result;
 class ResultObserver
 {
     use BroadcastsQuietly;
+
+    public function __construct(private readonly AdvanceBracketWinner $advancer) {}
 
     /**
      * Fire ScoreUpdated whenever a result is created or its scores change.
@@ -29,6 +32,10 @@ class ResultObserver
         $game->setRelation('result', $result);
 
         $this->broadcastQuietly(fn () => ScoreUpdated::dispatch($game));
+
+        // A corrected score on an already-final knockout game re-promotes the
+        // (possibly new) winner. No-ops unless the game is final + decisive.
+        $this->advancer->execute($game);
     }
 
     /**
