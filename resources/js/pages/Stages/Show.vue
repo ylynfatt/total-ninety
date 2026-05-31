@@ -2,6 +2,7 @@
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
+import Bracket from '@/components/Bracket.vue';
 import StandingsTable from '@/components/StandingsTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -97,11 +98,27 @@ interface GroupedStandingsEntry {
 // (since they're string keys). Vue/TS sees that as Record<string, ...>.
 type Standings = OverallStandings | Record<string, GroupedStandingsEntry> | null;
 
+interface BracketRound {
+    round: number;
+    label: string;
+    games: {
+        id: number;
+        bracket_position: number;
+        home_team: { id: number; name: string; acronym: string } | null;
+        away_team: { id: number; name: string; acronym: string } | null;
+        home_team_score: number | null;
+        away_team_score: number | null;
+        status: string;
+        winner: 'home' | 'away' | null;
+    }[];
+}
+
 const props = defineProps<{
     league: LeagueSummary;
     season: SeasonSummary;
     stage: Stage;
     standings: Standings;
+    bracket: BracketRound[] | null;
     can: {
         update: boolean;
         delete: boolean;
@@ -242,6 +259,17 @@ function deleteGroup(group: Group) {
                         </div>
                     </li>
                 </ul>
+            </CardContent>
+        </Card>
+
+        <!-- Bracket (knockout formats) -->
+        <Card v-if="bracket && bracket.length > 0">
+            <CardHeader>
+                <CardTitle class="text-base">Bracket</CardTitle>
+                <CardDescription>Winners advance automatically as games reach full time. Tap a tie to open its gamecast.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Bracket :rounds="bracket" :route-args="{ league: league.slug, season: season.id, stage: stage.id }" />
             </CardContent>
         </Card>
 
