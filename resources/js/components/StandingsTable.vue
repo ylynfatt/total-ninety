@@ -33,9 +33,9 @@ function formColor(letter: string): string {
 </script>
 
 <template>
-    <div class="overflow-hidden rounded-md border">
+    <div class="overflow-hidden rounded-lg border">
         <table class="w-full text-sm">
-            <thead class="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+            <thead class="bg-primary text-xs uppercase tracking-wider text-primary-foreground">
                 <tr>
                     <th class="px-3 py-2 text-right">#</th>
                     <th class="px-3 py-2 text-left">Team</th>
@@ -51,13 +51,20 @@ function formColor(letter: string): string {
                 </tr>
             </thead>
             <tbody class="divide-y">
-                <tr v-for="(row, index) in rows" :key="row.team_id" class="hover:bg-muted/30">
-                    <td class="px-3 py-2 text-right text-muted-foreground tabular-nums">{{ index + 1 }}</td>
+                <tr
+                    v-for="(row, index) in rows"
+                    :key="row.team_id"
+                    class="border-l-2 hover:bg-muted/30"
+                    :class="index === 0 ? 'border-l-volt bg-volt/5' : 'border-l-transparent'"
+                >
+                    <td class="px-3 py-2 text-right font-display text-base tabular-nums" :class="index === 0 ? 'font-bold' : 'text-muted-foreground'">
+                        {{ index + 1 }}
+                    </td>
                     <td class="px-3 py-2">
-                        <span class="mr-2 rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                        <span class="mr-2 inline-block w-10 rounded bg-muted px-1 text-center font-display text-xs font-semibold uppercase text-muted-foreground">
                             {{ row.team_acronym }}
                         </span>
-                        <span>{{ row.team_name }}</span>
+                        <span :class="{ 'font-semibold': index === 0 }">{{ row.team_name }}</span>
                     </td>
                     <td class="hidden px-2 py-2 text-right tabular-nums sm:table-cell">{{ row.played }}</td>
                     <td class="hidden px-2 py-2 text-right tabular-nums md:table-cell">{{ row.won }}</td>
@@ -68,7 +75,7 @@ function formColor(letter: string): string {
                     <td class="px-2 py-2 text-right tabular-nums" :class="{ 'text-emerald-600 dark:text-emerald-400': row.goal_difference > 0, 'text-rose-600 dark:text-rose-400': row.goal_difference < 0 }">
                         {{ row.goal_difference > 0 ? '+' : '' }}{{ row.goal_difference }}
                     </td>
-                    <td class="px-3 py-2 text-right tabular-nums font-semibold">{{ row.points }}</td>
+                    <td class="px-3 py-2 text-right font-display text-base font-bold tabular-nums">{{ row.points }}</td>
                     <td class="hidden px-3 py-2 lg:table-cell">
                         <div v-if="row.form" class="flex items-center gap-0.5">
                             <span

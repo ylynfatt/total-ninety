@@ -94,38 +94,51 @@ const pageBreadcrumbs: BreadcrumbItem[] = [{ title: 'Scoreboard', href: index().
         <Breadcrumbs :breadcrumbs="pageBreadcrumbs" />
 
         <header>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2.5">
                 <span class="relative flex h-2.5 w-2.5">
-                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
-                    <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-live opacity-75" />
+                    <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-live" />
                 </span>
-                <h1 class="text-2xl font-semibold tracking-tight">Live Scoreboard</h1>
+                <h1 class="font-display text-3xl font-bold uppercase tracking-wide">Live Scoreboard</h1>
             </div>
             <p class="text-sm text-muted-foreground">Every game in progress right now, updating live.</p>
         </header>
 
-        <div v-if="games.length === 0" class="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
+        <div v-if="games.length === 0" class="rounded-xl border border-dashed p-12 text-center text-sm text-muted-foreground">
             No games are in progress right now. Check back when kick-off rolls around.
         </div>
 
         <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div v-for="game in games" :key="game.id" class="rounded-lg border bg-card p-4 shadow-sm">
-                <div class="mb-3 flex items-center justify-between text-xs uppercase tracking-wide text-muted-foreground">
+            <div v-for="game in games" :key="game.id" class="overflow-hidden rounded-xl border bg-card shadow-sm">
+                <div class="flex items-center justify-between gap-2 bg-primary px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary-foreground">
                     <span class="truncate">{{ game.league_name ?? 'League' }}</span>
-                    <span class="flex items-center gap-1 font-semibold text-red-500">
+                    <span class="flex shrink-0 items-center gap-1.5">
+                        <span v-if="game.status === 'live'" class="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-volt" />
                         {{ game.status_label }}
-                        <template v-if="game.status === 'live' && game.current_minute !== null"> · {{ game.current_minute }}'</template>
+                        <template v-if="game.status === 'live' && game.current_minute !== null">
+                            <span class="font-display text-sm tabular-nums text-volt">{{ game.current_minute }}'</span>
+                        </template>
                     </span>
                 </div>
 
-                <div class="space-y-2">
+                <div class="space-y-1 p-4">
                     <div class="flex items-center justify-between gap-2">
-                        <span class="truncate font-medium">{{ game.home_team.name ?? 'TBD' }}</span>
-                        <span class="text-xl font-bold tabular-nums">{{ game.home_team_score ?? '–' }}</span>
+                        <span class="flex min-w-0 items-center gap-2">
+                            <span class="w-10 shrink-0 rounded bg-muted px-1 text-center font-display text-xs font-semibold uppercase text-muted-foreground">
+                                {{ game.home_team.acronym ?? '—' }}
+                            </span>
+                            <span class="truncate font-medium">{{ game.home_team.name ?? 'TBD' }}</span>
+                        </span>
+                        <span class="font-display text-3xl font-bold tabular-nums leading-none">{{ game.home_team_score ?? '–' }}</span>
                     </div>
                     <div class="flex items-center justify-between gap-2">
-                        <span class="truncate font-medium">{{ game.away_team.name ?? 'TBD' }}</span>
-                        <span class="text-xl font-bold tabular-nums">{{ game.away_team_score ?? '–' }}</span>
+                        <span class="flex min-w-0 items-center gap-2">
+                            <span class="w-10 shrink-0 rounded bg-muted px-1 text-center font-display text-xs font-semibold uppercase text-muted-foreground">
+                                {{ game.away_team.acronym ?? '—' }}
+                            </span>
+                            <span class="truncate font-medium">{{ game.away_team.name ?? 'TBD' }}</span>
+                        </span>
+                        <span class="font-display text-3xl font-bold tabular-nums leading-none">{{ game.away_team_score ?? '–' }}</span>
                     </div>
                 </div>
             </div>

@@ -1,52 +1,84 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { dashboard, login } from '@/routes';
-import { register } from '@/routes';
+import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import { dashboard, login, register } from '@/routes';
 import { index as leaguesIndex } from '@/routes/leagues';
+import { index as scoreboardIndex } from '@/routes/scoreboard';
 </script>
 
 <template>
     <Head title="Welcome" />
 
-    <div class="relative flex min-h-screen flex-col bg-slate-100 dark:bg-neutral-950">
-        <header class="absolute inset-x-0 top-0 px-6 py-4">
-            <nav class="flex items-center justify-end gap-3 text-sm">
-                <Link
-                    v-if="$page.props.auth.user"
-                    :href="dashboard()"
-                    class="inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 font-medium text-slate-900 shadow-sm transition hover:bg-slate-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
-                >
-                    Dashboard
-                </Link>
-                <template v-else>
+    <div class="bg-pitch relative flex min-h-screen flex-col text-sidebar-foreground">
+        <header class="px-6 py-5">
+            <nav class="mx-auto flex max-w-5xl items-center justify-between gap-3 text-sm">
+                <div class="flex items-center gap-2.5">
+                    <div class="flex aspect-square size-9 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                        <AppLogoIcon class="size-6" />
+                    </div>
+                    <span class="font-display text-lg font-bold uppercase tracking-[0.14em]">
+                        Total <span class="text-sidebar-primary">Ninety</span>
+                    </span>
+                </div>
+
+                <div class="flex items-center gap-3">
                     <Link
-                        :href="login()"
-                        class="inline-flex items-center rounded-md px-4 py-2 font-medium text-slate-700 transition hover:text-slate-900 dark:text-neutral-300 dark:hover:text-neutral-100"
+                        v-if="$page.props.auth.user"
+                        :href="dashboard()"
+                        class="inline-flex items-center rounded-md bg-sidebar-primary px-4 py-2 font-semibold text-sidebar-primary-foreground transition hover:opacity-90"
                     >
-                        Log in
+                        Dashboard
                     </Link>
-                    <Link
-                        :href="register()"
-                        class="inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 font-medium text-slate-900 shadow-sm transition hover:bg-slate-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
-                    >
-                        Register
-                    </Link>
-                </template>
+                    <template v-else>
+                        <Link
+                            :href="login()"
+                            class="inline-flex items-center rounded-md px-4 py-2 font-medium text-sidebar-foreground/80 transition hover:text-sidebar-foreground"
+                        >
+                            Log in
+                        </Link>
+                        <Link
+                            :href="register()"
+                            class="inline-flex items-center rounded-md bg-sidebar-primary px-4 py-2 font-semibold text-sidebar-primary-foreground transition hover:opacity-90"
+                        >
+                            Register
+                        </Link>
+                    </template>
+                </div>
             </nav>
         </header>
 
-        <main class="flex flex-1 flex-col items-center justify-center gap-8 px-6">
-            <h1
-                class="text-center text-4xl font-extrabold leading-none tracking-tight text-gray-900 md:text-5xl lg:text-6xl dark:text-neutral-100"
-            >
-                ⚽️ Total Ninety
+        <main class="flex flex-1 flex-col items-center justify-center gap-8 px-6 pb-24 text-center">
+            <p class="font-display text-sm font-semibold uppercase tracking-[0.35em] text-sidebar-primary">
+                Every minute of the match
+            </p>
+
+            <h1 class="font-display text-6xl font-bold uppercase leading-none tracking-tight sm:text-7xl md:text-8xl">
+                Total <span class="text-sidebar-primary">Ninety</span>
             </h1>
-            <Link
-                :href="leaguesIndex().url"
-                class="inline-flex items-center rounded-md border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-900 shadow-sm transition hover:bg-slate-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
-            >
-                Browse leagues
-            </Link>
+
+            <p class="max-w-xl text-balance text-base text-sidebar-foreground/80 sm:text-lg">
+                Run your league like the big leagues — fixtures, live scores, gamecasts,
+                standings, and knockout brackets, all in one place.
+            </p>
+
+            <div class="flex flex-wrap items-center justify-center gap-3">
+                <Link
+                    :href="leaguesIndex().url"
+                    class="inline-flex items-center rounded-md bg-sidebar-primary px-6 py-3 text-sm font-bold uppercase tracking-wider text-sidebar-primary-foreground transition hover:opacity-90"
+                >
+                    Browse leagues
+                </Link>
+                <Link
+                    :href="scoreboardIndex().url"
+                    class="inline-flex items-center gap-2 rounded-md border border-sidebar-foreground/30 px-6 py-3 text-sm font-bold uppercase tracking-wider transition hover:border-sidebar-foreground/60"
+                >
+                    <span class="relative flex h-2 w-2">
+                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-live opacity-75" />
+                        <span class="relative inline-flex h-2 w-2 rounded-full bg-live" />
+                    </span>
+                    Live scores
+                </Link>
+            </div>
         </main>
     </div>
 </template>

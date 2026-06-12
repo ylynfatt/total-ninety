@@ -151,37 +151,42 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
         <Breadcrumbs :breadcrumbs="pageBreadcrumbs" />
 
         <!-- Scoreboard header -->
-        <div class="rounded-xl border bg-card p-6 shadow-sm">
-            <div class="mb-4 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide">
-                <span v-if="isLive" class="relative flex h-2 w-2">
-                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
-                    <span class="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
-                </span>
-                <span :class="isLive ? 'text-red-500' : 'text-muted-foreground'">
-                    {{ game.status_label }}
-                    <template v-if="game.status === 'live' && game.current_minute !== null"> · {{ game.current_minute }}'</template>
-                </span>
-            </div>
+        <div class="overflow-hidden rounded-xl border border-sidebar-border shadow-md">
+            <div class="bg-pitch p-6 text-sidebar-foreground">
+                <div class="mb-5 flex items-center justify-center">
+                    <span
+                        class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-widest"
+                        :class="isLive ? 'bg-volt text-volt-foreground' : 'bg-sidebar-accent text-sidebar-accent-foreground'"
+                    >
+                        <span v-if="isLive" class="relative flex h-2 w-2">
+                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-live opacity-75" />
+                            <span class="relative inline-flex h-2 w-2 rounded-full bg-live" />
+                        </span>
+                        {{ game.status_label }}
+                        <template v-if="game.status === 'live' && game.current_minute !== null">· {{ game.current_minute }}'</template>
+                    </span>
+                </div>
 
-            <div class="grid grid-cols-3 items-center gap-2">
-                <div class="text-center">
-                    <div class="text-sm font-semibold text-muted-foreground">{{ game.home_team?.acronym ?? '—' }}</div>
-                    <div class="truncate text-base font-medium">{{ game.home_team?.name ?? 'TBD' }}</div>
+                <div class="grid grid-cols-3 items-center gap-2">
+                    <div class="text-center">
+                        <div class="font-display text-lg font-bold uppercase tracking-wider text-volt">{{ game.home_team?.acronym ?? '—' }}</div>
+                        <div class="truncate text-sm font-medium opacity-90">{{ game.home_team?.name ?? 'TBD' }}</div>
+                    </div>
+                    <div class="text-center font-display text-6xl font-bold tabular-nums leading-none">
+                        {{ game.home_team_score ?? '–' }}<span class="px-2 opacity-50">:</span>{{ game.away_team_score ?? '–' }}
+                    </div>
+                    <div class="text-center">
+                        <div class="font-display text-lg font-bold uppercase tracking-wider text-volt">{{ game.away_team?.acronym ?? '—' }}</div>
+                        <div class="truncate text-sm font-medium opacity-90">{{ game.away_team?.name ?? 'TBD' }}</div>
+                    </div>
                 </div>
-                <div class="text-center text-4xl font-bold tabular-nums">
-                    {{ game.home_team_score ?? '–' }}<span class="px-2 text-muted-foreground">:</span>{{ game.away_team_score ?? '–' }}
-                </div>
-                <div class="text-center">
-                    <div class="text-sm font-semibold text-muted-foreground">{{ game.away_team?.acronym ?? '—' }}</div>
-                    <div class="truncate text-base font-medium">{{ game.away_team?.name ?? 'TBD' }}</div>
-                </div>
-            </div>
 
-            <p v-if="game.match_date || game.location" class="mt-4 text-center text-xs text-muted-foreground">
-                <span v-if="game.match_date">{{ formatDate(game.match_date) }}</span>
-                <span v-if="game.match_date && game.location"> · </span>
-                <span v-if="game.location">{{ game.location }}</span>
-            </p>
+                <p v-if="game.match_date || game.location" class="mt-5 text-center text-xs uppercase tracking-wider opacity-70">
+                    <span v-if="game.match_date">{{ formatDate(game.match_date) }}</span>
+                    <span v-if="game.match_date && game.location"> · </span>
+                    <span v-if="game.location">{{ game.location }}</span>
+                </p>
+            </div>
         </div>
 
         <!-- Owner controls -->
