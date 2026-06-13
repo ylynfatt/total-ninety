@@ -47,6 +47,7 @@ class GamecastController extends Controller
                 'status' => $game->status->value,
                 'status_label' => $game->status->label(),
                 'current_minute' => $game->current_minute,
+                'clock_started_at' => $game->clock_started_at?->toISOString(),
                 'match_date' => $game->match_date,
                 'location' => $game->location,
                 'home_team' => $game->homeTeam?->only(['id', 'name', 'acronym']),

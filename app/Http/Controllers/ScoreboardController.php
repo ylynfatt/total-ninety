@@ -57,6 +57,7 @@ class ScoreboardController extends Controller
             'status' => $game->status->value,
             'status_label' => $game->status->label(),
             'current_minute' => $game->current_minute,
+            'clock_started_at' => $game->clock_started_at?->toISOString(),
             'league_name' => $game->season?->league?->name,
         ];
     }

@@ -56,6 +56,7 @@ class ScoreUpdated implements ShouldBroadcastNow
             'home_team_score' => $result?->home_team_score,
             'away_team_score' => $result?->away_team_score,
             'current_minute' => $this->game->current_minute,
+            'clock_started_at' => $this->game->clock_started_at?->toISOString(),
             'status' => $this->game->status->value,
         ];
     }

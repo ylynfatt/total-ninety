@@ -28,6 +28,7 @@ class Game extends Model
         'location',
         'status',
         'current_minute',
+        'clock_started_at',
     ];
 
     protected function casts(): array
@@ -36,6 +37,7 @@ class Game extends Model
             'match_date' => 'datetime',
             'status' => GameStatus::class,
             'current_minute' => 'integer',
+            'clock_started_at' => 'datetime',
             'round' => 'integer',
             'bracket_position' => 'integer',
         ];

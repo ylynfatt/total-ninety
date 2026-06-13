@@ -47,6 +47,7 @@ class GameStatusChanged implements ShouldBroadcastNow
             'game_id' => $this->game->id,
             'status' => $this->game->status->value,
             'current_minute' => $this->game->current_minute,
+            'clock_started_at' => $this->game->clock_started_at?->toISOString(),
         ];
     }
 }

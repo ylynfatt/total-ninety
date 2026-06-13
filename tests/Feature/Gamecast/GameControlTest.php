@@ -83,6 +83,95 @@ describe('updateStatus', function () {
     });
 });
 
+describe('match clock', function () {
+    it('starts the running clock on kick off', function () {
+        [$owner, $league, $season, $stage, $game] = controlChain();
+
+        $this->actingAs($owner)
+            ->patch(statusUrl($league, $season, $stage, $game), [
+                'status' => GameStatus::Live->value,
+                'current_minute' => 0,
+            ])
+            ->assertRedirect();
+
+        $game->refresh();
+        expect($game->status)->toBe(GameStatus::Live)
+            ->and($game->current_minute)->toBe(0)
+            ->and($game->clock_started_at)->not->toBeNull();
+    });
+
+    it('freezes at the elapsed minute when paused for half time', function () {
+        [$owner, $league, $season, $stage, $game] = controlChain();
+        $this->freezeTime();
+
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), [
+            'status' => GameStatus::Live->value,
+            'current_minute' => 0,
+        ]);
+
+        $this->travel(47)->minutes();
+
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), [
+            'status' => GameStatus::HalfTime->value,
+        ])->assertRedirect();
+
+        $game->refresh();
+        expect($game->status)->toBe(GameStatus::HalfTime)
+            ->and($game->current_minute)->toBe(47)
+            ->and($game->clock_started_at)->toBeNull();
+    });
+
+    it('resumes from the frozen minute and restarts the clock', function () {
+        [$owner, $league, $season, $stage, $game] = controlChain();
+        $game->update(['status' => GameStatus::HalfTime, 'current_minute' => 45, 'clock_started_at' => null]);
+
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), [
+            'status' => GameStatus::Live->value,
+        ])->assertRedirect();
+
+        $game->refresh();
+        expect($game->status)->toBe(GameStatus::Live)
+            ->and($game->current_minute)->toBe(45)
+            ->and($game->clock_started_at)->not->toBeNull();
+    });
+
+    it('re-anchors a running clock to a manual minute correction', function () {
+        [$owner, $league, $season, $stage, $game] = controlChain();
+        $this->freezeTime();
+
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), [
+            'status' => GameStatus::Live->value,
+            'current_minute' => 30,
+        ]);
+        $startedAt = $game->refresh()->clock_started_at;
+
+        $this->travel(10)->minutes();
+
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), [
+            'status' => GameStatus::Live->value,
+            'current_minute' => 42,
+        ])->assertRedirect();
+
+        $game->refresh();
+        expect($game->current_minute)->toBe(42)
+            ->and($game->clock_started_at->greaterThan($startedAt))->toBeTrue();
+    });
+
+    it('clears the clock when a game is postponed', function () {
+        [$owner, $league, $season, $stage, $game] = controlChain();
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), [
+            'status' => GameStatus::Live->value,
+            'current_minute' => 0,
+        ]);
+
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), [
+            'status' => GameStatus::Postponed->value,
+        ])->assertRedirect();
+
+        expect($game->refresh()->clock_started_at)->toBeNull();
+    });
+});
+
 describe('storeEvent', function () {
     it('records a goal and increments the scoring team', function () {
         [$owner, $league, $season, $stage, $game, $home] = controlChain();

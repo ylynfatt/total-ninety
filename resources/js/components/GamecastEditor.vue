@@ -5,6 +5,7 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { matchClockMinute, useNow } from '@/composables/useMatchClock';
 import { destroy as destroyEvent, store as storeEvent, update as updateEvent } from '@/routes/games/events';
 import { update as updateStatus } from '@/routes/games/status';
 
@@ -44,15 +45,14 @@ const props = defineProps<{
     routeArgs: { league: string; season: number; stage: number; game: number };
     status: string;
     currentMinute: number | null;
+    clockStartedAt: string | null;
     homeTeam: TeamRef | null;
     awayTeam: TeamRef | null;
     rosters: { home: Roster; away: Roster };
     events: EditableEvent[];
 }>();
 
-// --- Status controls -------------------------------------------------------
-
-const minute = ref<number | null>(props.currentMinute);
+// --- Status + clock controls ----------------------------------------------
 
 const statusForm = useForm<{ status: string; current_minute: number | null }>({
     status: props.status,
@@ -70,8 +70,17 @@ const statusLabels: Record<string, string> = {
 
 const currentStatusLabel = computed(() => statusLabels[props.status] ?? props.status);
 
-const statusActions: { label: string; status: string; variant?: 'default' | 'outline' | 'destructive' | 'secondary' }[] = [
-    { label: 'Kick Off', status: 'live' },
+// The clock runs by itself once kicked off; this is the minute it currently
+// reads, ticking locally between broadcasts.
+const now = useNow();
+const liveMinute = computed(() => matchClockMinute(now.value, props.status, props.currentMinute, props.clockStartedAt));
+const isRunning = computed(() => props.status === 'live' && props.clockStartedAt !== null);
+
+// `minute` is the override sent with a status change: Kick Off restarts the
+// clock at 0, Resume (and the other transitions) pass null so the server keeps
+// or freezes the current minute on its own.
+const statusActions: { label: string; status: string; minute?: number; variant?: 'default' | 'outline' | 'destructive' | 'secondary' }[] = [
+    { label: 'Kick Off', status: 'live', minute: 0 },
     { label: 'Half Time', status: 'half_time', variant: 'secondary' },
     { label: 'Resume', status: 'live', variant: 'secondary' },
     { label: 'Full Time', status: 'full_time', variant: 'outline' },
@@ -79,10 +88,27 @@ const statusActions: { label: string; status: string; variant?: 'default' | 'out
     { label: 'Cancel', status: 'cancelled', variant: 'destructive' },
 ];
 
-function setStatus(status: string): void {
+function applyStatus(status: string, minute?: number): void {
     statusForm.status = status;
-    statusForm.current_minute = minute.value;
+    statusForm.current_minute = minute ?? null;
     statusForm.patch(updateStatus(props.routeArgs).url, { preserveScroll: true });
+}
+
+// Manual clock correction. Keeps the current status: a running clock re-anchors
+// to the new minute and keeps ticking; a paused clock just freezes there.
+const correction = ref<number | null>(null);
+
+function setMinute(value: number | null): void {
+    if (value === null) {
+        return;
+    }
+
+    correction.value = null;
+    applyStatus(props.status, Math.max(0, value));
+}
+
+function nudgeMinute(delta: number): void {
+    setMinute((liveMinute.value ?? 0) + delta);
 }
 
 // --- Event entry / editing -------------------------------------------------
@@ -214,12 +240,17 @@ function eventSummary(event: EditableEvent): string {
 
         <!-- Status + clock -->
         <div class="space-y-3">
-            <div class="flex items-end gap-3">
-                <div class="w-24">
-                    <Label for="minute">Minute</Label>
-                    <Input id="minute" v-model.number="minute" type="number" min="0" max="200" placeholder="—" />
+            <div class="flex items-center justify-between rounded-lg border bg-muted/40 px-4 py-3">
+                <div class="flex items-center gap-2">
+                    <span v-if="isRunning" class="relative flex h-2 w-2">
+                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-live opacity-75" />
+                        <span class="relative inline-flex h-2 w-2 rounded-full bg-live" />
+                    </span>
+                    <span class="text-sm font-medium">{{ currentStatusLabel }}</span>
                 </div>
-                <p class="pb-2 text-sm text-muted-foreground">Current: <span class="font-medium text-foreground">{{ currentStatusLabel }}</span></p>
+                <span class="font-display text-3xl font-bold tabular-nums leading-none">
+                    {{ liveMinute === null ? '—' : `${liveMinute}'` }}
+                </span>
             </div>
 
             <div class="flex flex-wrap gap-2">
@@ -230,12 +261,33 @@ function eventSummary(event: EditableEvent): string {
                     size="sm"
                     :variant="action.variant ?? 'default'"
                     :disabled="statusForm.processing"
-                    @click="setStatus(action.status)"
+                    @click="applyStatus(action.status, action.minute)"
                 >
                     {{ action.label }}
                 </Button>
             </div>
             <InputError :message="statusForm.errors.status" />
+
+            <!-- Manual clock correction (the clock runs on its own otherwise). -->
+            <div class="flex items-end gap-2">
+                <div class="w-24">
+                    <Label for="minute">Set minute</Label>
+                    <Input
+                        id="minute"
+                        v-model.number="correction"
+                        type="number"
+                        min="0"
+                        max="200"
+                        :placeholder="liveMinute === null ? '—' : String(liveMinute)"
+                        @keyup.enter="setMinute(correction)"
+                    />
+                </div>
+                <Button type="button" size="sm" variant="secondary" :disabled="statusForm.processing || correction === null" @click="setMinute(correction)">
+                    Set
+                </Button>
+                <Button type="button" size="sm" variant="outline" :disabled="statusForm.processing" @click="nudgeMinute(-1)">−1</Button>
+                <Button type="button" size="sm" variant="outline" :disabled="statusForm.processing" @click="nudgeMinute(1)">+1</Button>
+            </div>
         </div>
 
         <hr class="border-border" />
