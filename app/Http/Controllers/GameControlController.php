@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\ApplyGameStatus;
 use App\Actions\DeleteGameEvent;
 use App\Actions\RecordGameEvent;
 use App\Actions\UpdateGameEvent;
+use App\Enums\GameStatus;
 use App\Http\Requests\StoreGameEventRequest;
 use App\Http\Requests\UpdateGameEventRequest;
 use App\Http\Requests\UpdateGameStatusRequest;
@@ -22,11 +24,12 @@ use Illuminate\Http\RedirectResponse;
  */
 class GameControlController extends Controller
 {
-    public function updateStatus(UpdateGameStatusRequest $request, League $league, Season $season, Stage $stage, Game $game): RedirectResponse
+    public function updateStatus(UpdateGameStatusRequest $request, ApplyGameStatus $action, League $league, Season $season, Stage $stage, Game $game): RedirectResponse
     {
         $this->ensureChain($league, $season, $stage, $game);
 
-        $game->update($request->validated());
+        $validated = $request->validated();
+        $action->execute($game, GameStatus::from($validated['status']), $validated['current_minute'] ?? null);
 
         return redirect()
             ->route('games.show', [$league, $season, $stage, $game])

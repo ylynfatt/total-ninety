@@ -4,6 +4,7 @@ import { useEchoPublic } from '@laravel/echo-vue';
 import { computed, ref, watch } from 'vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import GamecastEditor from '@/components/GamecastEditor.vue';
+import { matchClockMinute, useNow } from '@/composables/useMatchClock';
 import { formatDate } from '@/lib/datetime';
 import { show as leagueShow } from '@/routes/leagues';
 import { show as stageShow } from '@/routes/stages';
@@ -20,6 +21,7 @@ interface GamecastGame {
     status: string;
     status_label: string;
     current_minute: number | null;
+    clock_started_at: string | null;
     match_date: string | null;
     location: string | null;
     home_team: TeamRef | null;
@@ -87,6 +89,11 @@ const statusLabels: Record<string, string> = {
 
 const isLive = computed(() => game.value.status === 'live' || game.value.status === 'half_time');
 
+// The match clock ticks locally from the broadcast base minute + start instant,
+// so the displayed minute advances smoothly without per-minute server pushes.
+const now = useNow();
+const clockMinute = computed(() => matchClockMinute(now.value, game.value.status, game.value.current_minute, game.value.clock_started_at));
+
 /**
  * Patch the scoreline / status in place. The payload carries everything the
  * header needs, so no refetch is required for scores.
@@ -94,18 +101,20 @@ const isLive = computed(() => game.value.status === 'live' || game.value.status 
 useEchoPublic(
     `game.${props.game.id}`,
     'ScoreUpdated',
-    (e: { home_team_score: number | null; away_team_score: number | null; current_minute: number | null; status: string }) => {
+    (e: { home_team_score: number | null; away_team_score: number | null; current_minute: number | null; clock_started_at: string | null; status: string }) => {
         game.value.home_team_score = e.home_team_score;
         game.value.away_team_score = e.away_team_score;
         game.value.current_minute = e.current_minute;
+        game.value.clock_started_at = e.clock_started_at;
         game.value.status = e.status;
         game.value.status_label = statusLabels[e.status] ?? e.status;
     },
 );
 
-useEchoPublic(`game.${props.game.id}`, 'GameStatusChanged', (e: { status: string; current_minute: number | null }) => {
+useEchoPublic(`game.${props.game.id}`, 'GameStatusChanged', (e: { status: string; current_minute: number | null; clock_started_at: string | null }) => {
     game.value.status = e.status;
     game.value.current_minute = e.current_minute;
+    game.value.clock_started_at = e.clock_started_at;
     game.value.status_label = statusLabels[e.status] ?? e.status;
 });
 
@@ -167,7 +176,7 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
                             <span class="relative inline-flex h-2 w-2 rounded-full bg-live" />
                         </span>
                         {{ game.status_label }}
-                        <template v-if="game.status === 'live' && game.current_minute !== null">· {{ game.current_minute }}'</template>
+                        <template v-if="game.status === 'live' && clockMinute !== null">· {{ clockMinute }}'</template>
                     </span>
                 </div>
 
@@ -199,6 +208,7 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
             :route-args="{ league: league.slug, season: season.id, stage: stage.id, game: game.id }"
             :status="game.status"
             :current-minute="game.current_minute"
+            :clock-started-at="game.clock_started_at"
             :home-team="game.home_team"
             :away-team="game.away_team"
             :rosters="rosters"

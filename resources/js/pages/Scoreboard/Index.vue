@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { useEchoPublic } from '@laravel/echo-vue';
 import { ref } from 'vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
+import { matchClockMinute, useNow } from '@/composables/useMatchClock';
 import { show as gamecastShow } from '@/routes/games';
 import { index } from '@/routes/scoreboard';
 import type { BreadcrumbItem } from '@/types';
@@ -19,6 +20,7 @@ interface ScoreboardGame {
     status: string;
     status_label: string;
     current_minute: number | null;
+    clock_started_at: string | null;
     league_name: string | null;
 }
 
@@ -52,6 +54,13 @@ function isInProgress(status: string): boolean {
     return inProgressStatuses.includes(status);
 }
 
+// One shared ticking clock for every card on the board.
+const now = useNow();
+
+function liveMinute(game: ScoreboardGame): number | null {
+    return matchClockMinute(now.value, game.status, game.current_minute, game.clock_started_at);
+}
+
 /**
  * A fresh score landed. Patch the matching card in place if we already know
  * about the game; otherwise it just became relevant — refetch to pick up its
@@ -60,13 +69,14 @@ function isInProgress(status: string): boolean {
 useEchoPublic(
     'scoreboard.live',
     'ScoreUpdated',
-    (e: { game_id: number; home_team_score: number | null; away_team_score: number | null; current_minute: number | null; status: string }) => {
+    (e: { game_id: number; home_team_score: number | null; away_team_score: number | null; current_minute: number | null; clock_started_at: string | null; status: string }) => {
         const game = games.value.find((g) => g.id === e.game_id);
 
         if (game) {
             game.home_team_score = e.home_team_score;
             game.away_team_score = e.away_team_score;
             game.current_minute = e.current_minute;
+            game.clock_started_at = e.clock_started_at;
             game.status = e.status;
         } else if (isInProgress(e.status)) {
             reloadGames();
@@ -81,13 +91,14 @@ useEchoPublic(
 useEchoPublic(
     'scoreboard.live',
     'GameStatusChanged',
-    (e: { game_id: number; status: string; current_minute: number | null }) => {
+    (e: { game_id: number; status: string; current_minute: number | null; clock_started_at: string | null }) => {
         const game = games.value.find((g) => g.id === e.game_id);
 
         if (game) {
             if (isInProgress(e.status)) {
                 game.status = e.status;
                 game.current_minute = e.current_minute;
+                game.clock_started_at = e.clock_started_at;
             } else {
                 games.value = games.value.filter((g) => g.id !== e.game_id);
             }
@@ -143,8 +154,8 @@ const pageBreadcrumbs: BreadcrumbItem[] = [{ title: 'Scoreboard', href: index().
                     <span class="flex shrink-0 items-center gap-1.5">
                         <span v-if="game.status === 'live'" class="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-volt" />
                         {{ game.status_label }}
-                        <template v-if="game.status === 'live' && game.current_minute !== null">
-                            <span class="font-display text-sm tabular-nums text-volt">{{ game.current_minute }}'</span>
+                        <template v-if="game.status === 'live' && liveMinute(game) !== null">
+                            <span class="font-display text-sm tabular-nums text-volt">{{ liveMinute(game) }}'</span>
                         </template>
                     </span>
                 </div>
