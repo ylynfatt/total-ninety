@@ -40,6 +40,10 @@ class ScoreboardController extends Controller
     {
         return [
             'id' => $game->id,
+            // Identifiers the scoreboard needs to deep-link into the gamecast.
+            'league_slug' => $game->season?->league?->slug,
+            'season_id' => $game->season_id,
+            'stage_id' => $game->stage_id,
             'home_team' => [
                 'name' => $game->homeTeam?->name,
                 'acronym' => $game->homeTeam?->acronym,

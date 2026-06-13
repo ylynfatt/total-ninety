@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
+import { router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { store as storeEvent } from '@/routes/games/events';
+import { destroy as destroyEvent, store as storeEvent, update as updateEvent } from '@/routes/games/events';
 import { update as updateStatus } from '@/routes/games/status';
 
 interface Player {
@@ -25,6 +25,21 @@ interface TeamRef {
     acronym: string;
 }
 
+interface EditableEvent {
+    id: number;
+    type: string;
+    type_label: string;
+    minute: number | null;
+    stoppage: number | null;
+    team_acronym: string | null;
+    team_id: number | null;
+    player_id: number | null;
+    assist_player_id: number | null;
+    secondary_player_id: number | null;
+    player_name: string | null;
+    description: string | null;
+}
+
 const props = defineProps<{
     routeArgs: { league: string; season: number; stage: number; game: number };
     status: string;
@@ -32,6 +47,7 @@ const props = defineProps<{
     homeTeam: TeamRef | null;
     awayTeam: TeamRef | null;
     rosters: { home: Roster; away: Roster };
+    events: EditableEvent[];
 }>();
 
 // --- Status controls -------------------------------------------------------
@@ -69,7 +85,7 @@ function setStatus(status: string): void {
     statusForm.patch(updateStatus(props.routeArgs).url, { preserveScroll: true });
 }
 
-// --- Event entry -----------------------------------------------------------
+// --- Event entry / editing -------------------------------------------------
 
 const eventTypes: { value: string; label: string }[] = [
     { value: 'goal', label: 'Goal' },
@@ -81,6 +97,10 @@ const eventTypes: { value: string; label: string }[] = [
     { value: 'var_check', label: 'VAR Check' },
     { value: 'commentary', label: 'Commentary' },
 ];
+
+// When set, the form is correcting that event rather than recording a new one.
+const editingId = ref<number | null>(null);
+const isEditing = computed(() => editingId.value !== null);
 
 const eventForm = useForm<{
     type: string;
@@ -118,20 +138,70 @@ const selectedRoster = computed<Player[]>(() => {
     return [];
 });
 
+function transformPayload(data: Record<string, unknown>): Record<string, unknown> {
+    return {
+        ...data,
+        minute: data.minute === null || (data.minute as string) === '' ? null : Number(data.minute),
+        stoppage: data.stoppage === null || (data.stoppage as string) === '' ? null : Number(data.stoppage),
+        description: data.description === '' ? null : data.description,
+    };
+}
+
 function submitEvent(): void {
-    eventForm
-        .transform((data) => ({
-            ...data,
-            minute: data.minute === null || (data.minute as unknown as string) === '' ? null : Number(data.minute),
-            stoppage: data.stoppage === null || (data.stoppage as unknown as string) === '' ? null : Number(data.stoppage),
-            description: data.description === '' ? null : data.description,
-        }))
-        .post(storeEvent(props.routeArgs).url, {
+    if (isEditing.value) {
+        eventForm.transform(transformPayload).patch(updateEvent({ ...props.routeArgs, event: editingId.value as number }).url, {
             preserveScroll: true,
-            onSuccess: () => {
-                eventForm.reset('player_id', 'assist_player_id', 'secondary_player_id', 'description');
-            },
+            onSuccess: () => resetForm(),
         });
+
+        return;
+    }
+
+    eventForm.transform(transformPayload).post(storeEvent(props.routeArgs).url, {
+        preserveScroll: true,
+        onSuccess: () => eventForm.reset('player_id', 'assist_player_id', 'secondary_player_id', 'description'),
+    });
+}
+
+function startEdit(event: EditableEvent): void {
+    editingId.value = event.id;
+    eventForm.clearErrors();
+    eventForm.type = event.type;
+    eventForm.minute = event.minute;
+    eventForm.stoppage = event.stoppage;
+    eventForm.team_id = event.team_id;
+    eventForm.player_id = event.player_id;
+    eventForm.assist_player_id = event.assist_player_id;
+    eventForm.secondary_player_id = event.secondary_player_id;
+    eventForm.description = event.description ?? '';
+}
+
+function resetForm(): void {
+    editingId.value = null;
+    eventForm.clearErrors();
+    eventForm.reset();
+}
+
+function removeEvent(event: EditableEvent): void {
+    if (!window.confirm(`Remove this ${event.type_label.toLowerCase()}?`)) {
+        return;
+    }
+
+    router.delete(destroyEvent({ ...props.routeArgs, event: event.id }).url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            if (editingId.value === event.id) {
+                resetForm();
+            }
+        },
+    });
+}
+
+function eventSummary(event: EditableEvent): string {
+    const minute = event.minute === null ? '' : event.stoppage ? `${event.minute}+${event.stoppage}' ` : `${event.minute}' `;
+    const who = [event.team_acronym, event.player_name].filter(Boolean).join(' · ');
+
+    return `${minute}${event.type_label}${who ? ` — ${who}` : ''}`;
 }
 </script>
 
@@ -170,8 +240,13 @@ function submitEvent(): void {
 
         <hr class="border-border" />
 
-        <!-- Event entry -->
+        <!-- Event entry / editing -->
         <form class="space-y-3" @submit.prevent="submitEvent">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold">{{ isEditing ? 'Edit event' : 'Add event' }}</h3>
+                <Button v-if="isEditing" type="button" size="sm" variant="ghost" @click="resetForm">Cancel</Button>
+            </div>
+
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div class="col-span-2">
                     <Label for="event-type">Event</Label>
@@ -256,7 +331,32 @@ function submitEvent(): void {
 
             <p v-if="isScoring" class="text-xs text-muted-foreground">Goals update the scoreline automatically.</p>
 
-            <Button type="submit" :disabled="eventForm.processing">Record event</Button>
+            <Button type="submit" :disabled="eventForm.processing">{{ isEditing ? 'Save changes' : 'Record event' }}</Button>
         </form>
+
+        <!-- Recorded events: correct or remove existing entries -->
+        <template v-if="events.length > 0">
+            <hr class="border-border" />
+
+            <div class="space-y-2">
+                <h3 class="text-sm font-semibold">Recorded events</h3>
+                <ul class="divide-y rounded-md border">
+                    <li
+                        v-for="event in events"
+                        :key="event.id"
+                        class="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                        :class="{ 'bg-muted/50': editingId === event.id }"
+                    >
+                        <span class="min-w-0 truncate">{{ eventSummary(event) }}</span>
+                        <span class="flex shrink-0 gap-1">
+                            <Button type="button" size="sm" variant="ghost" @click="startEdit(event)">Edit</Button>
+                            <Button type="button" size="sm" variant="ghost" class="text-destructive hover:text-destructive" @click="removeEvent(event)">
+                                Delete
+                            </Button>
+                        </span>
+                    </li>
+                </ul>
+            </div>
+        </template>
     </div>
 </template>

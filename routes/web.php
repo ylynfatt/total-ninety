@@ -137,6 +137,16 @@ Route::middleware('auth')->scopeBindings()->group(function () {
         'leagues/{league}/seasons/{season}/stages/{stage}/games/{game}/events',
         [GameControlController::class, 'storeEvent']
     )->name('games.events.store');
+
+    Route::patch(
+        'leagues/{league}/seasons/{season}/stages/{stage}/games/{game}/events/{event}',
+        [GameControlController::class, 'updateEvent']
+    )->name('games.events.update');
+
+    Route::delete(
+        'leagues/{league}/seasons/{season}/stages/{stage}/games/{game}/events/{event}',
+        [GameControlController::class, 'destroyEvent']
+    )->name('games.events.destroy');
 });
 
 // Teams — public viewing (index/show), authenticated mutation.
