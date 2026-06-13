@@ -121,9 +121,10 @@ describe('match clock', function () {
             ->and($game->clock_started_at)->toBeNull();
     });
 
-    it('resumes from the frozen minute and restarts the clock', function () {
+    it('snaps the second half back to 45 on resume after half time', function () {
         [$owner, $league, $season, $stage, $game] = controlChain();
-        $game->update(['status' => GameStatus::HalfTime, 'current_minute' => 45, 'clock_started_at' => null]);
+        // First half froze in stoppage at 47'.
+        $game->update(['status' => GameStatus::HalfTime, 'current_minute' => 47, 'clock_started_at' => null]);
 
         $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), [
             'status' => GameStatus::Live->value,
@@ -133,6 +134,18 @@ describe('match clock', function () {
         expect($game->status)->toBe(GameStatus::Live)
             ->and($game->current_minute)->toBe(45)
             ->and($game->clock_started_at)->not->toBeNull();
+    });
+
+    it('still honours an explicit minute when resuming from half time', function () {
+        [$owner, $league, $season, $stage, $game] = controlChain();
+        $game->update(['status' => GameStatus::HalfTime, 'current_minute' => 47, 'clock_started_at' => null]);
+
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), [
+            'status' => GameStatus::Live->value,
+            'current_minute' => 50,
+        ])->assertRedirect();
+
+        expect($game->refresh()->current_minute)->toBe(50);
     });
 
     it('re-anchors a running clock to a manual minute correction', function () {

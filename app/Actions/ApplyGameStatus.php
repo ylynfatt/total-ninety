@@ -23,12 +23,19 @@ use Illuminate\Support\Carbon;
  */
 class ApplyGameStatus
 {
+    /**
+     * The minute the second half kicks off from. Resuming after Half Time
+     * snaps the clock back to 45' (per convention) rather than continuing from
+     * whatever stoppage minute the first half froze at.
+     */
+    private const SECOND_HALF_START = 45;
+
     public function execute(Game $game, GameStatus $status, ?int $minuteOverride = null): Game
     {
         if ($status === GameStatus::Live) {
             $game->forceFill([
                 'status' => $status,
-                'current_minute' => $minuteOverride ?? $game->current_minute ?? 0,
+                'current_minute' => $minuteOverride ?? $this->liveStartMinute($game),
                 'clock_started_at' => Carbon::now(),
             ]);
         } else {
@@ -42,6 +49,20 @@ class ApplyGameStatus
         $game->save();
 
         return $game;
+    }
+
+    /**
+     * The base minute to start the clock from when there's no explicit
+     * override: 45' when resuming the second half after Half Time, otherwise
+     * the game's current minute (0 for a fresh kick off).
+     */
+    private function liveStartMinute(Game $game): int
+    {
+        if ($game->status === GameStatus::HalfTime) {
+            return self::SECOND_HALF_START;
+        }
+
+        return $game->current_minute ?? 0;
     }
 
     /**
