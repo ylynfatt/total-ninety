@@ -278,7 +278,7 @@ function eventSummary(event: EditableEvent): string {
 
             <!-- Manual clock correction (the clock runs on its own otherwise). -->
             <div class="flex items-end gap-2">
-                <div class="w-24">
+                <div class="grid w-24 gap-2">
                     <Label for="minute">Set minute</Label>
                     <Input
                         id="minute"
@@ -308,7 +308,7 @@ function eventSummary(event: EditableEvent): string {
             </div>
 
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div class="col-span-2">
+                <div class="col-span-2 grid gap-2">
                     <Label for="event-type">Event</Label>
                     <select
                         id="event-type"
@@ -318,18 +318,18 @@ function eventSummary(event: EditableEvent): string {
                         <option v-for="option in eventTypes" :key="option.value" :value="option.value">{{ option.label }}</option>
                     </select>
                 </div>
-                <div>
+                <div class="grid gap-2">
                     <Label for="event-minute">Minute</Label>
                     <Input id="event-minute" v-model="eventForm.minute" type="number" min="0" max="200" />
                 </div>
-                <div>
+                <div class="grid gap-2">
                     <Label for="event-stoppage">+Stoppage</Label>
                     <Input id="event-stoppage" v-model="eventForm.stoppage" type="number" min="0" max="30" />
                 </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
-                <div>
+                <div class="grid gap-2">
                     <Label for="event-team">Team</Label>
                     <select
                         id="event-team"
@@ -342,7 +342,7 @@ function eventSummary(event: EditableEvent): string {
                     </select>
                     <InputError :message="eventForm.errors.team_id" />
                 </div>
-                <div>
+                <div class="grid gap-2">
                     <Label for="event-player">{{ isSubstitution ? 'Player off' : 'Player' }}</Label>
                     <select
                         id="event-player"
@@ -358,7 +358,7 @@ function eventSummary(event: EditableEvent): string {
                 </div>
             </div>
 
-            <div v-if="isGoalLike">
+            <div v-if="isGoalLike" class="grid gap-2">
                 <Label for="event-assist">Assist (optional)</Label>
                 <select
                     id="event-assist"
@@ -371,7 +371,7 @@ function eventSummary(event: EditableEvent): string {
                 </select>
             </div>
 
-            <div v-if="isSubstitution">
+            <div v-if="isSubstitution" class="grid gap-2">
                 <Label for="event-on">Player on</Label>
                 <select
                     id="event-on"
@@ -384,7 +384,7 @@ function eventSummary(event: EditableEvent): string {
                 </select>
             </div>
 
-            <div>
+            <div class="grid gap-2">
                 <Label for="event-description">Description (optional)</Label>
                 <Input id="event-description" v-model="eventForm.description" type="text" maxlength="500" />
             </div>
