@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { useEchoPublic } from '@laravel/echo-vue';
+import { useEchoPublicClient } from '@/composables/useEchoPublicClient';
 import { computed, ref, watch } from 'vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import GamecastEditor from '@/components/GamecastEditor.vue';
@@ -98,7 +98,7 @@ const clockMinute = computed(() => matchClockMinute(now.value, game.value.status
  * Patch the scoreline / status in place. The payload carries everything the
  * header needs, so no refetch is required for scores.
  */
-useEchoPublic(
+useEchoPublicClient(
     `game.${props.game.id}`,
     'ScoreUpdated',
     (e: { home_team_score: number | null; away_team_score: number | null; current_minute: number | null; clock_started_at: string | null; status: string }) => {
@@ -111,7 +111,7 @@ useEchoPublic(
     },
 );
 
-useEchoPublic(`game.${props.game.id}`, 'GameStatusChanged', (e: { status: string; current_minute: number | null; clock_started_at: string | null }) => {
+useEchoPublicClient(`game.${props.game.id}`, 'GameStatusChanged', (e: { status: string; current_minute: number | null; clock_started_at: string | null }) => {
     game.value.status = e.status;
     game.value.current_minute = e.current_minute;
     game.value.clock_started_at = e.clock_started_at;
@@ -122,7 +122,7 @@ useEchoPublic(`game.${props.game.id}`, 'GameStatusChanged', (e: { status: string
  * A new timeline entry. The broadcast carries only IDs, so reload the resolved
  * `events` prop rather than rebuilding name lookups on the client.
  */
-useEchoPublic(`game.${props.game.id}`, 'GameEventRecorded', () => {
+useEchoPublicClient(`game.${props.game.id}`, 'GameEventRecorded', () => {
     router.reload({ only: ['events'] });
 });
 

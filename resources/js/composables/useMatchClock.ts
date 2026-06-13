@@ -1,4 +1,4 @@
-import { onUnmounted, readonly, ref } from 'vue';
+import { onMounted, onUnmounted, readonly, ref } from 'vue';
 
 /**
  * The minute a match clock currently reads. While the game is live and the
@@ -20,14 +20,26 @@ export function matchClockMinute(now: number, status: string, baseMinute: number
  * A ref holding the current epoch milliseconds, refreshed on an interval and
  * cleaned up on unmount. Drives the locally-ticking match clock so every
  * viewer (including guests) advances the minute without server round-trips.
+ *
+ * The interval is started in onMounted so this is safe under server-side
+ * rendering — `window`/timers are only touched in the browser, and the server
+ * just renders the initial snapshot.
  */
 export function useNow(intervalMs = 1000) {
     const now = ref(Date.now());
-    const timer = window.setInterval(() => {
-        now.value = Date.now();
-    }, intervalMs);
+    let timer: ReturnType<typeof setInterval> | undefined;
 
-    onUnmounted(() => window.clearInterval(timer));
+    onMounted(() => {
+        timer = setInterval(() => {
+            now.value = Date.now();
+        }, intervalMs);
+    });
+
+    onUnmounted(() => {
+        if (timer !== undefined) {
+            clearInterval(timer);
+        }
+    });
 
     return readonly(now);
 }
