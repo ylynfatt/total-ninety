@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { useEchoPublic } from '@laravel/echo-vue';
+import { useEchoPublicClient } from '@/composables/useEchoPublicClient';
 import { ref } from 'vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { matchClockMinute, useNow } from '@/composables/useMatchClock';
@@ -66,7 +66,7 @@ function liveMinute(game: ScoreboardGame): number | null {
  * about the game; otherwise it just became relevant — refetch to pick up its
  * team names (the broadcast payload doesn't carry them).
  */
-useEchoPublic(
+useEchoPublicClient(
     'scoreboard.live',
     'ScoreUpdated',
     (e: { game_id: number; home_team_score: number | null; away_team_score: number | null; current_minute: number | null; clock_started_at: string | null; status: string }) => {
@@ -88,7 +88,7 @@ useEchoPublic(
  * A lifecycle transition. Drop games that left the live set, update the clock
  * for those still live, and refetch when a brand-new game kicks off.
  */
-useEchoPublic(
+useEchoPublicClient(
     'scoreboard.live',
     'GameStatusChanged',
     (e: { game_id: number; status: string; current_minute: number | null; clock_started_at: string | null }) => {
