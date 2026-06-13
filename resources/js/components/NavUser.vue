@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { usePage } from '@inertiajs/vue3';
-import { ChevronsUpDown } from 'lucide-vue-next';
+import { Link, usePage } from '@inertiajs/vue3';
+import { ChevronsUpDown, LogIn } from 'lucide-vue-next';
 import { computed } from 'vue';
 import {
     DropdownMenu,
@@ -15,15 +15,19 @@ import {
 } from '@/components/ui/sidebar';
 import UserInfo from '@/components/UserInfo.vue';
 import UserMenuContent from '@/components/UserMenuContent.vue';
+import { login } from '@/routes';
 
 const page = usePage();
+// Null for guests — the public pages (scoreboard, gamecast) render this same
+// sidebar, so the user menu must degrade to a sign-in link rather than assume
+// an authenticated user.
 const user = computed(() => page.props.auth.user);
 const { isMobile, state } = useSidebar();
 </script>
 
 <template>
     <SidebarMenu>
-        <SidebarMenuItem>
+        <SidebarMenuItem v-if="user">
             <DropdownMenu>
                 <DropdownMenuTrigger as-child>
                     <SidebarMenuButton
@@ -50,6 +54,14 @@ const { isMobile, state } = useSidebar();
                     <UserMenuContent :user="user" />
                 </DropdownMenuContent>
             </DropdownMenu>
+        </SidebarMenuItem>
+        <SidebarMenuItem v-else>
+            <SidebarMenuButton size="lg" as-child>
+                <Link :href="login()">
+                    <LogIn class="size-4" />
+                    <span>Log in</span>
+                </Link>
+            </SidebarMenuButton>
         </SidebarMenuItem>
     </SidebarMenu>
 </template>
