@@ -4,6 +4,7 @@ use App\Enums\GameStatus;
 use App\Models\Game;
 use App\Models\Result;
 use App\Models\Season;
+use App\Models\Stage;
 use App\Models\Team;
 
 describe('ScoreboardController index', function () {
@@ -60,6 +61,21 @@ describe('ScoreboardController index', function () {
                 ->where('games.0.status_label', 'Live')
                 ->where('games.0.current_minute', 67)
                 ->where('games.0.league_name', $season->league->name)
+            );
+    });
+
+    it('exposes the league chain so the card can deep-link to the gamecast', function () {
+        $season = Season::factory()->create();
+        $stage = Stage::factory()->for($season)->create();
+
+        $game = Game::factory()->for($season)->for($stage)->live()->create();
+
+        $this->get('/scoreboard')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('games.0.league_slug', $season->league->slug)
+                ->where('games.0.season_id', $season->id)
+                ->where('games.0.stage_id', $stage->id)
             );
     });
 

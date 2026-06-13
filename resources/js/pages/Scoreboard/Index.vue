@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { useEchoPublic } from '@laravel/echo-vue';
 import { ref } from 'vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
+import { show as gamecastShow } from '@/routes/games';
 import { index } from '@/routes/scoreboard';
 import type { BreadcrumbItem } from '@/types';
 
 interface ScoreboardGame {
     id: number;
+    league_slug: string | null;
+    season_id: number | null;
+    stage_id: number | null;
     home_team: { name: string | null; acronym: string | null };
     away_team: { name: string | null; acronym: string | null };
     home_team_score: number | null;
@@ -16,6 +20,24 @@ interface ScoreboardGame {
     status_label: string;
     current_minute: number | null;
     league_name: string | null;
+}
+
+/**
+ * Deep-link into the gamecast for a game, when we know its full league chain.
+ * Returns null for the odd legacy game missing a league/season/stage so the
+ * card simply renders unlinked rather than producing a broken URL.
+ */
+function gamecastUrl(game: ScoreboardGame): string | null {
+    if (game.league_slug === null || game.season_id === null || game.stage_id === null) {
+        return null;
+    }
+
+    return gamecastShow({
+        league: game.league_slug,
+        season: game.season_id,
+        stage: game.stage_id,
+        game: game.id,
+    }).url;
 }
 
 const props = defineProps<{
@@ -109,7 +131,13 @@ const pageBreadcrumbs: BreadcrumbItem[] = [{ title: 'Scoreboard', href: index().
         </div>
 
         <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div v-for="game in games" :key="game.id" class="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <component
+                :is="gamecastUrl(game) ? Link : 'div'"
+                v-for="game in games"
+                :key="game.id"
+                :href="gamecastUrl(game) ?? undefined"
+                class="group block overflow-hidden rounded-xl border bg-card shadow-sm transition hover:border-primary/40 hover:shadow-md"
+            >
                 <div class="flex items-center justify-between gap-2 bg-primary px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary-foreground">
                     <span class="truncate">{{ game.league_name ?? 'League' }}</span>
                     <span class="flex shrink-0 items-center gap-1.5">
@@ -141,7 +169,7 @@ const pageBreadcrumbs: BreadcrumbItem[] = [{ title: 'Scoreboard', href: index().
                         <span class="font-display text-3xl font-bold tabular-nums leading-none">{{ game.away_team_score ?? '–' }}</span>
                     </div>
                 </div>
-            </div>
+            </component>
         </div>
     </div>
 </template>

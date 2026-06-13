@@ -36,6 +36,10 @@ interface GamecastEvent {
     type_label: string;
     is_scoring: boolean;
     team_acronym: string | null;
+    team_id: number | null;
+    player_id: number | null;
+    assist_player_id: number | null;
+    secondary_player_id: number | null;
     side: 'home' | 'away' | null;
     player_name: string | null;
     assist_player_name: string | null;
@@ -198,6 +202,7 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
             :home-team="game.home_team"
             :away-team="game.away_team"
             :rosters="rosters"
+            :events="events"
         />
 
         <!-- Timeline -->

@@ -38,6 +38,11 @@ function eventsUrl(League $league, Season $season, Stage $stage, Game $game): st
     return "/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}/games/{$game->id}/events";
 }
 
+function eventUrl(League $league, Season $season, Stage $stage, Game $game, GameEvent $event): string
+{
+    return eventsUrl($league, $season, $stage, $game)."/{$event->id}";
+}
+
 describe('updateStatus', function () {
     it('lets the owner change the game status and minute', function () {
         [$owner, $league, $season, $stage, $game] = controlChain();
@@ -165,6 +170,142 @@ describe('storeEvent', function () {
                 'type' => GameEventType::Goal->value,
                 'team_id' => $home->id,
             ])
+            ->assertForbidden();
+    });
+});
+
+describe('updateEvent', function () {
+    it('moves a goal to the other team and rebalances the scoreline', function () {
+        [$owner, $league, $season, $stage, $game, $home, $away] = controlChain();
+        Result::factory()->for($game)->create(['home_team_score' => 1, 'away_team_score' => 0]);
+        $event = GameEvent::factory()->for($game)->create([
+            'type' => GameEventType::Goal,
+            'team_id' => $home->id,
+        ]);
+
+        $this->actingAs($owner)
+            ->patch(eventUrl($league, $season, $stage, $game, $event), [
+                'type' => GameEventType::Goal->value,
+                'team_id' => $away->id,
+            ])
+            ->assertRedirect();
+
+        expect($event->fresh()->team_id)->toBe($away->id);
+
+        $result = Result::where('game_id', $game->id)->first();
+        expect($result->home_team_score)->toBe(0)
+            ->and($result->away_team_score)->toBe(1);
+    });
+
+    it('takes the point off when a goal is corrected to a non-scoring event', function () {
+        [$owner, $league, $season, $stage, $game, $home] = controlChain();
+        Result::factory()->for($game)->create(['home_team_score' => 2, 'away_team_score' => 0]);
+        $event = GameEvent::factory()->for($game)->create([
+            'type' => GameEventType::Goal,
+            'team_id' => $home->id,
+        ]);
+
+        $this->actingAs($owner)
+            ->patch(eventUrl($league, $season, $stage, $game, $event), [
+                'type' => GameEventType::YellowCard->value,
+                'team_id' => $home->id,
+            ])
+            ->assertRedirect();
+
+        $result = Result::where('game_id', $game->id)->first();
+        expect($result->home_team_score)->toBe(1)
+            ->and($result->away_team_score)->toBe(0);
+    });
+
+    it('leaves the score untouched when editing only a detail', function () {
+        [$owner, $league, $season, $stage, $game, $home] = controlChain();
+        Result::factory()->for($game)->create(['home_team_score' => 1, 'away_team_score' => 0]);
+        $event = GameEvent::factory()->for($game)->create([
+            'type' => GameEventType::Goal,
+            'team_id' => $home->id,
+            'minute' => 10,
+        ]);
+
+        $this->actingAs($owner)
+            ->patch(eventUrl($league, $season, $stage, $game, $event), [
+                'type' => GameEventType::Goal->value,
+                'team_id' => $home->id,
+                'minute' => 42,
+            ])
+            ->assertRedirect();
+
+        expect($event->fresh()->minute)->toBe(42);
+
+        $result = Result::where('game_id', $game->id)->first();
+        expect($result->home_team_score)->toBe(1)
+            ->and($result->away_team_score)->toBe(0);
+    });
+
+    it('forbids non-owners', function () {
+        [, $league, $season, $stage, $game, $home] = controlChain();
+        $event = GameEvent::factory()->for($game)->create(['type' => GameEventType::Goal, 'team_id' => $home->id]);
+        $intruder = User::factory()->create();
+
+        $this->actingAs($intruder)
+            ->patch(eventUrl($league, $season, $stage, $game, $event), [
+                'type' => GameEventType::Goal->value,
+                'team_id' => $home->id,
+            ])
+            ->assertForbidden();
+    });
+
+    it('404s when the event belongs to another game', function () {
+        [$owner, $league, $season, $stage, $game] = controlChain();
+        $otherGame = Game::factory()->for($season)->for($stage)->create();
+        $event = GameEvent::factory()->for($otherGame)->create();
+
+        $this->actingAs($owner)
+            ->patch(eventUrl($league, $season, $stage, $game, $event), [
+                'type' => GameEventType::Commentary->value,
+            ])
+            ->assertNotFound();
+    });
+});
+
+describe('destroyEvent', function () {
+    it('removes a goal and walks back the scoreline', function () {
+        [$owner, $league, $season, $stage, $game, $home] = controlChain();
+        Result::factory()->for($game)->create(['home_team_score' => 2, 'away_team_score' => 1]);
+        $event = GameEvent::factory()->for($game)->create([
+            'type' => GameEventType::Goal,
+            'team_id' => $home->id,
+        ]);
+
+        $this->actingAs($owner)
+            ->delete(eventUrl($league, $season, $stage, $game, $event))
+            ->assertRedirect();
+
+        expect(GameEvent::find($event->id))->toBeNull();
+
+        $result = Result::where('game_id', $game->id)->first();
+        expect($result->home_team_score)->toBe(1)
+            ->and($result->away_team_score)->toBe(1);
+    });
+
+    it('removes a non-scoring event without touching the score', function () {
+        [$owner, $league, $season, $stage, $game] = controlChain();
+        $event = GameEvent::factory()->for($game)->create(['type' => GameEventType::Commentary, 'team_id' => null]);
+
+        $this->actingAs($owner)
+            ->delete(eventUrl($league, $season, $stage, $game, $event))
+            ->assertRedirect();
+
+        expect(GameEvent::find($event->id))->toBeNull()
+            ->and(Result::where('game_id', $game->id)->exists())->toBeFalse();
+    });
+
+    it('forbids non-owners', function () {
+        [, $league, $season, $stage, $game, $home] = controlChain();
+        $event = GameEvent::factory()->for($game)->create(['type' => GameEventType::Goal, 'team_id' => $home->id]);
+        $intruder = User::factory()->create();
+
+        $this->actingAs($intruder)
+            ->delete(eventUrl($league, $season, $stage, $game, $event))
             ->assertForbidden();
     });
 });

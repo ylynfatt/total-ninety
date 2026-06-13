@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\DeleteGameEvent;
 use App\Actions\RecordGameEvent;
+use App\Actions\UpdateGameEvent;
 use App\Http\Requests\StoreGameEventRequest;
+use App\Http\Requests\UpdateGameEventRequest;
 use App\Http\Requests\UpdateGameStatusRequest;
 use App\Models\Game;
+use App\Models\GameEvent;
 use App\Models\League;
 use App\Models\Season;
 use App\Models\Stage;
@@ -38,6 +42,31 @@ class GameControlController extends Controller
         return redirect()
             ->route('games.show', [$league, $season, $stage, $game])
             ->with('status', 'Event recorded.');
+    }
+
+    public function updateEvent(UpdateGameEventRequest $request, UpdateGameEvent $action, League $league, Season $season, Stage $stage, Game $game, GameEvent $event): RedirectResponse
+    {
+        $this->ensureChain($league, $season, $stage, $game);
+        abort_if($event->game_id !== $game->id, 404);
+
+        $action->execute($game, $event, $request->validated());
+
+        return redirect()
+            ->route('games.show', [$league, $season, $stage, $game])
+            ->with('status', 'Event updated.');
+    }
+
+    public function destroyEvent(DeleteGameEvent $action, League $league, Season $season, Stage $stage, Game $game, GameEvent $event): RedirectResponse
+    {
+        $this->ensureChain($league, $season, $stage, $game);
+        abort_if($event->game_id !== $game->id, 404);
+        $this->authorize('update', $game);
+
+        $action->execute($game, $event);
+
+        return redirect()
+            ->route('games.show', [$league, $season, $stage, $game])
+            ->with('status', 'Event removed.');
     }
 
     /**

@@ -104,6 +104,12 @@ class GamecastController extends Controller
             'type_label' => $event->type->label(),
             'is_scoring' => $event->type->isScoringEvent(),
             'team_acronym' => $event->team?->acronym,
+            // Raw foreign keys so the owner's editor can repopulate its form
+            // when correcting an event. Public viewers simply ignore them.
+            'team_id' => $event->team_id,
+            'player_id' => $event->player_id,
+            'assist_player_id' => $event->assist_player_id,
+            'secondary_player_id' => $event->secondary_player_id,
             // Which side of the timeline the event belongs to. Null = neutral
             // (kick-off, half/full time, unattributed commentary) and renders
             // centered.
