@@ -223,6 +223,14 @@ function removeEvent(event: EditableEvent): void {
     });
 }
 
+// Lifecycle markers (kick off / half time / full time) are produced by the
+// status buttons, not the entry form, so they're delete-only here.
+const lifecycleTypes = ['kick_off', 'half_time', 'full_time'];
+
+function isLifecycle(event: EditableEvent): boolean {
+    return lifecycleTypes.includes(event.type);
+}
+
 function eventSummary(event: EditableEvent): string {
     const minute = event.minute === null ? '' : event.stoppage ? `${event.minute}+${event.stoppage}' ` : `${event.minute}' `;
     const who = [event.team_acronym, event.player_name].filter(Boolean).join(' · ');
@@ -401,7 +409,7 @@ function eventSummary(event: EditableEvent): string {
                     >
                         <span class="min-w-0 truncate">{{ eventSummary(event) }}</span>
                         <span class="flex shrink-0 gap-1">
-                            <Button type="button" size="sm" variant="ghost" @click="startEdit(event)">Edit</Button>
+                            <Button v-if="!isLifecycle(event)" type="button" size="sm" variant="ghost" @click="startEdit(event)">Edit</Button>
                             <Button type="button" size="sm" variant="ghost" class="text-destructive hover:text-destructive" @click="removeEvent(event)">
                                 Delete
                             </Button>

@@ -185,6 +185,76 @@ describe('match clock', function () {
     });
 });
 
+describe('lifecycle markers', function () {
+    it('drops a kick off marker on the timeline', function () {
+        [$owner, $league, $season, $stage, $game] = controlChain();
+
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), [
+            'status' => GameStatus::Live->value,
+            'current_minute' => 0,
+        ])->assertRedirect();
+
+        $marker = GameEvent::where('game_id', $game->id)->where('type', GameEventType::KickOff)->first();
+        expect($marker)->not->toBeNull()
+            ->and($marker->team_id)->toBeNull()
+            ->and($marker->minute)->toBeNull();
+    });
+
+    it('marks half time and full time at the frozen minute', function () {
+        [$owner, $league, $season, $stage, $game] = controlChain();
+        $this->freezeTime();
+
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), [
+            'status' => GameStatus::Live->value,
+            'current_minute' => 0,
+        ]);
+        $this->travel(46)->minutes();
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), ['status' => GameStatus::HalfTime->value]);
+
+        $half = GameEvent::where('game_id', $game->id)->where('type', GameEventType::HalfTime)->first();
+        expect($half)->not->toBeNull()->and($half->minute)->toBe(46);
+
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), ['status' => GameStatus::FullTime->value]);
+        expect(GameEvent::where('game_id', $game->id)->where('type', GameEventType::FullTime)->exists())->toBeTrue();
+    });
+
+    it('marks the second-half kick off at 45', function () {
+        [$owner, $league, $season, $stage, $game] = controlChain();
+        $game->update(['status' => GameStatus::HalfTime, 'current_minute' => 47, 'clock_started_at' => null]);
+
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), ['status' => GameStatus::Live->value])->assertRedirect();
+
+        $marker = GameEvent::where('game_id', $game->id)->where('type', GameEventType::KickOff)->latest('id')->first();
+        expect($marker)->not->toBeNull()->and($marker->minute)->toBe(45);
+    });
+
+    it('does not mark administrative statuses like postponed', function () {
+        [$owner, $league, $season, $stage, $game] = controlChain();
+
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), [
+            'status' => GameStatus::Postponed->value,
+        ])->assertRedirect();
+
+        expect(GameEvent::where('game_id', $game->id)->exists())->toBeFalse();
+    });
+
+    it('does not duplicate a marker when only the minute is corrected', function () {
+        [$owner, $league, $season, $stage, $game] = controlChain();
+
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), [
+            'status' => GameStatus::Live->value,
+            'current_minute' => 0,
+        ]);
+        // A correction keeps status live — no new kick off marker.
+        $this->actingAs($owner)->patch(statusUrl($league, $season, $stage, $game), [
+            'status' => GameStatus::Live->value,
+            'current_minute' => 12,
+        ]);
+
+        expect(GameEvent::where('game_id', $game->id)->where('type', GameEventType::KickOff)->count())->toBe(1);
+    });
+});
+
 describe('storeEvent', function () {
     it('records a goal and increments the scoring team', function () {
         [$owner, $league, $season, $stage, $game, $home] = controlChain();
