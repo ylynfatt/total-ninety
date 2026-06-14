@@ -81,6 +81,14 @@ describe('ScoreUpdated', function () {
             'status' => 'live',
         ]);
     });
+
+    // The client subscribes by this exact short name (Echo listens for the
+    // leading-dot form). Renaming it silently breaks realtime updates.
+    it('broadcasts under its short event name', function () {
+        $game = Game::factory()->create();
+
+        expect((new ScoreUpdated($game))->broadcastAs())->toBe('ScoreUpdated');
+    });
 });
 
 describe('GameEventRecorded', function () {
@@ -125,6 +133,12 @@ describe('GameEventRecorded', function () {
             'type' => 'yellow_card',
             'description' => 'Late challenge',
         ]);
+    });
+
+    it('broadcasts under its short event name', function () {
+        $event = GameEvent::factory()->create();
+
+        expect((new GameEventRecorded($event))->broadcastAs())->toBe('GameEventRecorded');
     });
 });
 
@@ -172,5 +186,11 @@ describe('GameStatusChanged', function () {
             'status' => 'half_time',
             'current_minute' => 45,
         ]);
+    });
+
+    it('broadcasts under its short event name', function () {
+        $game = Game::factory()->create();
+
+        expect((new GameStatusChanged($game))->broadcastAs())->toBe('GameStatusChanged');
     });
 });
