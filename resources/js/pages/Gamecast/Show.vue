@@ -312,26 +312,34 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
 </template>
 
 <style scoped>
-/* A fresh commentary line slides up into place and pulses a ring so live
-   viewers notice the new entry as the feed scrolls to it. */
+/* A fresh commentary line slides up, then pulses a bright highlight (a tinted
+   background plus a volt ring) three times so live viewers clearly catch the
+   new entry as the feed scrolls to it. */
 .commentary-enter-from {
     opacity: 0;
-    transform: translateY(0.75rem);
+    transform: translateY(1rem);
 }
 
 .commentary-enter-active {
     transition:
-        opacity 0.35s ease,
-        transform 0.35s ease;
-    animation: commentary-flash 1.4s ease-out;
+        opacity 0.4s ease,
+        transform 0.4s ease;
+    animation: commentary-flash 2s ease-in-out;
 }
 
 @keyframes commentary-flash {
-    0% {
-        box-shadow: 0 0 0 2px var(--ring);
+    0%,
+    40%,
+    80% {
+        background-color: color-mix(in srgb, var(--volt) 30%, var(--card));
+        box-shadow: 0 0 0 3px var(--volt);
     }
+
+    20%,
+    60%,
     100% {
-        box-shadow: 0 0 0 2px transparent;
+        background-color: var(--card);
+        box-shadow: 0 0 0 3px transparent;
     }
 }
 </style>
