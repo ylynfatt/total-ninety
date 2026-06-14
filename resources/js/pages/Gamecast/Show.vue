@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
 import { useEchoPublicClient } from '@/composables/useEchoPublicClient';
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import GamecastEditor from '@/components/GamecastEditor.vue';
 import { matchClockMinute, useNow } from '@/composables/useMatchClock';
@@ -77,6 +77,24 @@ watch(
 // timeline. Everything else stays on the timeline.
 const timelineEvents = computed(() => props.events.filter((event) => event.type !== 'commentary'));
 const commentaryEvents = computed(() => props.events.filter((event) => event.type === 'commentary'));
+
+// Commentary reads oldest-first, so the freshest entry lands at the bottom.
+// When a new one arrives (the realtime reload grows the list), pin the feed to
+// the end so live viewers always see the latest line without scrolling.
+const commentaryFeed = ref<HTMLElement | null>(null);
+
+watch(
+    () => commentaryEvents.value.length,
+    (next, previous) => {
+        if (next <= previous) {
+            return;
+        }
+
+        nextTick(() => {
+            commentaryFeed.value?.scrollTo({ top: commentaryFeed.value.scrollHeight, behavior: 'smooth' });
+        });
+    },
+);
 
 const statusLabels: Record<string, string> = {
     scheduled: 'Scheduled',
@@ -240,9 +258,9 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
                     </div>
 
                     <!-- Team events sit on their own side around a shared center rail. -->
-                    <div v-else class="grid grid-cols-[1fr_3rem_1fr] items-center gap-2 rounded-md py-1.5 hover:bg-muted/40">
+                    <div v-else class="grid grid-cols-[1fr_3rem_1fr] items-start gap-2 rounded-md py-1.5 hover:bg-muted/40">
                         <div
-                            class="flex min-w-0 flex-col text-sm"
+                            class="row-start-1 flex min-w-0 flex-col text-sm"
                             :class="event.side === 'home' ? 'col-start-1 items-end text-right' : 'col-start-3 items-start text-left'"
                         >
                             <div :class="event.is_scoring ? 'font-semibold' : 'font-medium'">
@@ -257,7 +275,7 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
                             <div v-if="event.description" class="text-muted-foreground">{{ event.description }}</div>
                         </div>
 
-                        <div class="col-start-2 flex flex-col items-center leading-none">
+                        <div class="col-start-2 row-start-1 flex flex-col items-center leading-none">
                             <span class="text-lg">{{ eventGlyphs[event.type] ?? '•' }}</span>
                             <span class="mt-0.5 text-xs font-semibold tabular-nums text-muted-foreground">{{ eventMinute(event) }}</span>
                         </div>
@@ -270,14 +288,20 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
         <section v-if="commentaryEvents.length > 0">
             <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Commentary</h2>
 
-            <ul class="space-y-2">
-                <li v-for="event in commentaryEvents" :key="event.id" class="flex gap-3 rounded-md border bg-card p-3 text-sm shadow-sm">
-                    <span v-if="eventMinute(event)" class="w-10 shrink-0 text-right font-semibold tabular-nums text-muted-foreground">
-                        {{ eventMinute(event) }}
-                    </span>
-                    <p class="min-w-0 flex-1">{{ event.description }}</p>
-                </li>
-            </ul>
+            <div ref="commentaryFeed" class="max-h-[28rem] overflow-y-auto pr-1">
+                <TransitionGroup tag="ul" name="commentary" class="space-y-2">
+                    <li
+                        v-for="event in commentaryEvents"
+                        :key="event.id"
+                        class="flex gap-3 rounded-md border bg-card p-3 text-sm shadow-sm"
+                    >
+                        <span v-if="eventMinute(event)" class="w-10 shrink-0 text-right font-semibold tabular-nums text-muted-foreground">
+                            {{ eventMinute(event) }}
+                        </span>
+                        <p class="min-w-0 flex-1">{{ event.description }}</p>
+                    </li>
+                </TransitionGroup>
+            </div>
         </section>
 
         <Link :href="leagueShow(league.slug).url" class="text-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
@@ -285,3 +309,28 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
         </Link>
     </div>
 </template>
+
+<style scoped>
+/* A fresh commentary line slides up into place and pulses a ring so live
+   viewers notice the new entry as the feed scrolls to it. */
+.commentary-enter-from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+}
+
+.commentary-enter-active {
+    transition:
+        opacity 0.35s ease,
+        transform 0.35s ease;
+    animation: commentary-flash 1.4s ease-out;
+}
+
+@keyframes commentary-flash {
+    0% {
+        box-shadow: 0 0 0 2px var(--ring);
+    }
+    100% {
+        box-shadow: 0 0 0 2px transparent;
+    }
+}
+</style>
