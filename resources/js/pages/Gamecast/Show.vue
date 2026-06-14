@@ -2,6 +2,7 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import { useEchoPublicClient } from '@/composables/useEchoPublicClient';
 import { computed, nextTick, ref, watch } from 'vue';
+import AnimatedScore from '@/components/AnimatedScore.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import GamecastEditor from '@/components/GamecastEditor.vue';
 import { matchClockMinute, useNow } from '@/composables/useMatchClock';
@@ -205,7 +206,7 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
                         <div class="truncate text-sm font-medium opacity-90">{{ game.home_team?.name ?? 'TBD' }}</div>
                     </div>
                     <div class="text-center font-display text-6xl font-bold tabular-nums leading-none">
-                        {{ game.home_team_score ?? '–' }}<span class="px-2 opacity-50">:</span>{{ game.away_team_score ?? '–' }}
+                        <AnimatedScore :value="game.home_team_score" /><span class="px-2 opacity-50">:</span><AnimatedScore :value="game.away_team_score" />
                     </div>
                     <div class="text-center">
                         <div class="font-display text-lg font-bold uppercase tracking-wider text-volt">{{ game.away_team?.acronym ?? '—' }}</div>
