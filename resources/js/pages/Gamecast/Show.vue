@@ -242,7 +242,7 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
                     <!-- Team events sit on their own side around a shared center rail. -->
                     <div v-else class="grid grid-cols-[1fr_3rem_1fr] items-start gap-2 rounded-md py-1.5 hover:bg-muted/40">
                         <div
-                            class="flex min-w-0 flex-col text-sm"
+                            class="row-start-1 flex min-w-0 flex-col text-sm"
                             :class="event.side === 'home' ? 'col-start-1 items-end text-right' : 'col-start-3 items-start text-left'"
                         >
                             <div :class="event.is_scoring ? 'font-semibold' : 'font-medium'">
@@ -257,7 +257,7 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
                             <div v-if="event.description" class="text-muted-foreground">{{ event.description }}</div>
                         </div>
 
-                        <div class="col-start-2 flex flex-col items-center leading-none">
+                        <div class="col-start-2 row-start-1 flex flex-col items-center leading-none">
                             <span class="text-lg">{{ eventGlyphs[event.type] ?? '•' }}</span>
                             <span class="mt-0.5 text-xs font-semibold tabular-nums text-muted-foreground">{{ eventMinute(event) }}</span>
                         </div>
