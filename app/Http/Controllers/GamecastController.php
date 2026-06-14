@@ -55,7 +55,7 @@ class GamecastController extends Controller
                 'home_team_score' => $game->result?->home_team_score,
                 'away_team_score' => $game->result?->away_team_score,
             ],
-            'events' => $game->events->map(fn (GameEvent $event): array => $this->transformEvent($event, $game))->all(),
+            'events' => $game->timelineEvents()->map(fn (GameEvent $event): array => $this->transformEvent($event, $game))->all(),
             'can' => ['update' => $canUpdate],
             // Rosters power the editor's player pickers; only the owner needs
             // them, so public viewers don't pay for the extra query/payload.
@@ -104,6 +104,9 @@ class GamecastController extends Controller
             'type' => $event->type->value,
             'type_label' => $event->type->label(),
             'is_scoring' => $event->type->isScoringEvent(),
+            // Phase markers (kick off, half/full time) read cleaner as a bare
+            // label — the timeline hides their minute.
+            'is_lifecycle' => $event->type->isLifecycleEvent(),
             'team_acronym' => $event->team?->acronym,
             // Raw foreign keys so the owner's editor can repopulate its form
             // when correcting an event. Public viewers simply ignore them.
