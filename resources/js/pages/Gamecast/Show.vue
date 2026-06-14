@@ -37,6 +37,7 @@ interface GamecastEvent {
     type: string;
     type_label: string;
     is_scoring: boolean;
+    is_lifecycle: boolean;
     team_acronym: string | null;
     team_id: number | null;
     player_id: number | null;
@@ -252,7 +253,7 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
                         <span class="flex items-center gap-1.5">
                             <span class="text-sm leading-none">{{ eventGlyphs[event.type] ?? '•' }}</span>
                             {{ event.type_label }}
-                            <span v-if="eventMinute(event)" class="tabular-nums">· {{ eventMinute(event) }}</span>
+                            <span v-if="!event.is_lifecycle && eventMinute(event)" class="tabular-nums">· {{ eventMinute(event) }}</span>
                         </span>
                         <span class="h-px flex-1 bg-border" />
                     </div>

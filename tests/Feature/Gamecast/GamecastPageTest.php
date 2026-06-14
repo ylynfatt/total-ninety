@@ -116,6 +116,28 @@ describe('GamecastController show', function () {
             );
     });
 
+    it('labels the second-half kick-off distinctly and drops the lifecycle minutes', function () {
+        [$league, $season, $stage, $game] = gamecastChain();
+
+        GameEvent::factory()->for($game)->create(['type' => GameEventType::KickOff, 'minute' => null]);
+        GameEvent::factory()->for($game)->goal()->create(['minute' => 30]);
+        GameEvent::factory()->for($game)->create(['type' => GameEventType::HalfTime, 'minute' => 49]);
+        GameEvent::factory()->for($game)->create(['type' => GameEventType::KickOff, 'minute' => 45]);
+        GameEvent::factory()->for($game)->create(['type' => GameEventType::FullTime, 'minute' => 90]);
+
+        $this->get(gamecastUrl($league, $season, $stage, $game))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('events.0.type_label', 'Kick Off')
+                ->where('events.0.is_lifecycle', true)
+                ->where('events.2.type_label', 'Half Time')
+                ->where('events.3.type', GameEventType::KickOff->value)
+                ->where('events.3.type_label', 'Second Half')
+                ->where('events.3.is_lifecycle', true)
+                ->where('events.4.type_label', 'Full Time')
+            );
+    });
+
     it('404s when the game does not belong to the stage chain', function () {
         [$league, $season, $stage] = gamecastChain();
         $otherGame = Game::factory()->create();
