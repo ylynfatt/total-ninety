@@ -240,7 +240,7 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
                     </div>
 
                     <!-- Team events sit on their own side around a shared center rail. -->
-                    <div v-else class="grid grid-cols-[1fr_3rem_1fr] items-center gap-2 rounded-md py-1.5 hover:bg-muted/40">
+                    <div v-else class="grid grid-cols-[1fr_3rem_1fr] items-start gap-2 rounded-md py-1.5 hover:bg-muted/40">
                         <div
                             class="flex min-w-0 flex-col text-sm"
                             :class="event.side === 'home' ? 'col-start-1 items-end text-right' : 'col-start-3 items-start text-left'"
@@ -270,7 +270,7 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
         <section v-if="commentaryEvents.length > 0">
             <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Commentary</h2>
 
-            <ul class="space-y-2">
+            <ul class="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
                 <li v-for="event in commentaryEvents" :key="event.id" class="flex gap-3 rounded-md border bg-card p-3 text-sm shadow-sm">
                     <span v-if="eventMinute(event)" class="w-10 shrink-0 text-right font-semibold tabular-nums text-muted-foreground">
                         {{ eventMinute(event) }}
