@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\GameEventType;
 use App\Models\Game;
 use App\Models\GameEvent;
 use App\Models\League;
@@ -55,7 +56,19 @@ class GamecastController extends Controller
                 'home_team_score' => $game->result?->home_team_score,
                 'away_team_score' => $game->result?->away_team_score,
             ],
-            'events' => $game->timelineEvents()->map(fn (GameEvent $event): array => $this->transformEvent($event, $game))->all(),
+            // Walk the ordered timeline counting kick-offs so the second-half
+            // restart can be labelled distinctly from the opening kick-off.
+            'events' => (function () use ($game): array {
+                $kickOffOrdinal = 0;
+
+                return $game->timelineEvents()->map(function (GameEvent $event) use ($game, &$kickOffOrdinal): array {
+                    if ($event->type === GameEventType::KickOff) {
+                        $kickOffOrdinal++;
+                    }
+
+                    return $this->transformEvent($event, $game, $kickOffOrdinal);
+                })->all();
+            })(),
             'can' => ['update' => $canUpdate],
             // Rosters power the editor's player pickers; only the owner needs
             // them, so public viewers don't pay for the extra query/payload.
@@ -93,16 +106,19 @@ class GamecastController extends Controller
     /**
      * Flatten an event with its resolved team/player names for the timeline.
      *
+     * `$kickOffOrdinal` is the running count of kick-offs up to and including
+     * this event, used to distinguish the second-half restart from the opener.
+     *
      * @return array<string, mixed>
      */
-    private function transformEvent(GameEvent $event, Game $game): array
+    private function transformEvent(GameEvent $event, Game $game, int $kickOffOrdinal = 1): array
     {
         return [
             'id' => $event->id,
             'minute' => $event->minute,
             'stoppage' => $event->stoppage,
             'type' => $event->type->value,
-            'type_label' => $event->type->label(),
+            'type_label' => $this->eventLabel($event, $kickOffOrdinal),
             'is_scoring' => $event->type->isScoringEvent(),
             // Phase markers (kick off, half/full time) read cleaner as a bare
             // label — the timeline hides their minute.
@@ -123,6 +139,20 @@ class GamecastController extends Controller
             'secondary_player_name' => $this->playerName($event->secondaryPlayer),
             'description' => $event->description,
         ];
+    }
+
+    /**
+     * The timeline label for an event. Kick-offs read "Kick Off" for the
+     * opener and "Second Half" for the restart; everything else uses its
+     * enum label.
+     */
+    private function eventLabel(GameEvent $event, int $kickOffOrdinal): string
+    {
+        if ($event->type === GameEventType::KickOff && $kickOffOrdinal >= 2) {
+            return 'Second Half';
+        }
+
+        return $event->type->label();
     }
 
     private function eventSide(GameEvent $event, Game $game): ?string
