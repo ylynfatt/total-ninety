@@ -2,6 +2,7 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import { useEchoPublicClient } from '@/composables/useEchoPublicClient';
 import { ref } from 'vue';
+import AnimatedScore from '@/components/AnimatedScore.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { matchClockMinute, useNow } from '@/composables/useMatchClock';
 import { show as gamecastShow } from '@/routes/games';
@@ -168,7 +169,7 @@ const pageBreadcrumbs: BreadcrumbItem[] = [{ title: 'Scoreboard', href: index().
                             </span>
                             <span class="truncate font-medium">{{ game.home_team.name ?? 'TBD' }}</span>
                         </span>
-                        <span class="font-display text-3xl font-bold tabular-nums leading-none">{{ game.home_team_score ?? '–' }}</span>
+                        <AnimatedScore :value="game.home_team_score" flash="var(--primary)" class="font-display text-3xl font-bold tabular-nums leading-none" />
                     </div>
                     <div class="flex items-center justify-between gap-2">
                         <span class="flex min-w-0 items-center gap-2">
@@ -177,7 +178,7 @@ const pageBreadcrumbs: BreadcrumbItem[] = [{ title: 'Scoreboard', href: index().
                             </span>
                             <span class="truncate font-medium">{{ game.away_team.name ?? 'TBD' }}</span>
                         </span>
-                        <span class="font-display text-3xl font-bold tabular-nums leading-none">{{ game.away_team_score ?? '–' }}</span>
+                        <AnimatedScore :value="game.away_team_score" flash="var(--primary)" class="font-display text-3xl font-bold tabular-nums leading-none" />
                     </div>
                 </div>
             </component>
