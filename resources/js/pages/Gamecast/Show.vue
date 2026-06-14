@@ -290,7 +290,7 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
         <section v-if="commentaryEvents.length > 0">
             <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Commentary</h2>
 
-            <div ref="commentaryFeed" class="max-h-[28rem] overflow-y-auto pr-1">
+            <div ref="commentaryFeed" class="commentary-scroll max-h-[28rem] overflow-y-auto px-2 py-2">
                 <TransitionGroup tag="ul" name="commentary" class="space-y-2">
                     <li
                         v-for="event in commentaryEvents"
@@ -313,6 +313,29 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
 </template>
 
 <style scoped>
+/* A slim, themed scrollbar for the commentary feed. The horizontal padding on
+   the container also gives the new-item flash ring room so it isn't clipped by
+   the scroll overflow. */
+.commentary-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+.commentary-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+
+.commentary-scroll::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    background-color: var(--border);
+}
+
+.commentary-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted-foreground);
+}
+
 /* A fresh commentary line slides up, then pulses a bright highlight (a tinted
    background plus a volt ring) three times so live viewers clearly catch the
    new entry as the feed scrolls to it. */
