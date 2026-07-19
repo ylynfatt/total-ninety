@@ -13,6 +13,8 @@ interface BracketGame {
     bracket_position: number;
     home_team: TeamRef | null;
     away_team: TeamRef | null;
+    home_placeholder: string | null;
+    away_placeholder: string | null;
     home_team_score: number | null;
     away_team_score: number | null;
     status: string;
@@ -50,14 +52,18 @@ defineProps<{
                             class="flex items-center justify-between gap-2 border-b px-3 py-1.5 text-sm"
                             :class="game.winner === 'home' ? 'font-semibold' : 'text-muted-foreground'"
                         >
-                            <span class="truncate">{{ game.home_team?.name ?? 'TBD' }}</span>
+                            <span class="truncate" :class="{ 'italic opacity-70': !game.home_team && game.home_placeholder }">
+                                {{ game.home_team?.name ?? game.home_placeholder ?? 'TBD' }}
+                            </span>
                             <span class="tabular-nums">{{ game.home_team_score ?? '–' }}</span>
                         </div>
                         <div
                             class="flex items-center justify-between gap-2 px-3 py-1.5 text-sm"
                             :class="game.winner === 'away' ? 'font-semibold' : 'text-muted-foreground'"
                         >
-                            <span class="truncate">{{ game.away_team?.name ?? 'TBD' }}</span>
+                            <span class="truncate" :class="{ 'italic opacity-70': !game.away_team && game.away_placeholder }">
+                                {{ game.away_team?.name ?? game.away_placeholder ?? 'TBD' }}
+                            </span>
                             <span class="tabular-nums">{{ game.away_team_score ?? '–' }}</span>
                         </div>
                     </Link>

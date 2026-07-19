@@ -30,6 +30,13 @@ use Illuminate\Support\Collection;
  * Seeding: standard bracket seeding so the top two seeds can only meet in the
  * final. Lowest seed (first in input) is strongest; phantom seeds beyond n are
  * the byes and fall to the strongest real seeds.
+ *
+ * Entrant mode: when the stage declares config['entrants'] (slot descriptors
+ * like "Winner Group A" — see EntrantSlot), the bracket's shape comes from
+ * that list instead of the season's teams: every game is emitted as a TBD
+ * placeholder, and the seeding action fills round 1 from the previous stage's
+ * final standings. Consecutive descriptor pairs are the round-1 matchups, so
+ * the descriptor list *is* the pairing template.
  */
 class SingleEliminationGenerator implements FixtureGenerator
 {
@@ -38,6 +45,12 @@ class SingleEliminationGenerator implements FixtureGenerator
      */
     public function generate(Stage $stage): Collection
     {
+        $entrants = EntrantSlot::listForStage($stage);
+
+        if ($entrants !== []) {
+            return $this->generatePlaceholders($stage, count($entrants));
+        }
+
         $teams = $stage->season->teams->values();
         $n = $teams->count();
 
@@ -95,6 +108,41 @@ class SingleEliminationGenerator implements FixtureGenerator
                 $games->push([
                     'home_team_id' => $round === 2 ? ($round2Fill[$position][0] ?? null) : null,
                     'away_team_id' => $round === 2 ? ($round2Fill[$position][1] ?? null) : null,
+                    'group_id' => null,
+                    'round' => $round,
+                    'bracket_position' => $position,
+                ]);
+            }
+        }
+
+        return $games;
+    }
+
+    /**
+     * Emit an all-TBD bracket sized to the entrant list: every game in every
+     * round carries null teams. Round 1 gets filled by the stage-seeding
+     * action; later rounds fill as winners advance.
+     *
+     * @return Collection<int, array{home_team_id: null, away_team_id: null, group_id: null, round: int, bracket_position: int}>
+     */
+    private function generatePlaceholders(Stage $stage, int $capacity): Collection
+    {
+        if ($capacity < 2 || $capacity !== self::nextPowerOfTwo($capacity)) {
+            throw new DomainException(
+                "Stage [{$stage->id}] has {$capacity} entrant slots; a knockout bracket needs a power of two (2, 4, 8, 16, …)."
+            );
+        }
+
+        $rounds = (int) log($capacity, 2);
+        $games = collect();
+
+        for ($round = 1; $round <= $rounds; $round++) {
+            $slots = intdiv($capacity, 2 ** $round);
+
+            for ($position = 0; $position < $slots; $position++) {
+                $games->push([
+                    'home_team_id' => null,
+                    'away_team_id' => null,
                     'group_id' => null,
                     'round' => $round,
                     'bracket_position' => $position,

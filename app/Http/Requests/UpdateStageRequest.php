@@ -44,6 +44,7 @@ class UpdateStageRequest extends FormRequest
             'config' => ['nullable', 'array'],
             'config.legs_per_group' => ['sometimes', 'integer', 'in:1,2'],
             'config.best_placed_count' => ['sometimes', 'integer', 'min:1', 'max:16'],
+            'config.entrants' => ['sometimes', 'array', StoreStageRequest::entrantsRule()],
         ];
     }
 
@@ -67,6 +68,12 @@ class UpdateStageRequest extends FormRequest
             $config['best_placed_count'] = (int) $config['best_placed_count'];
         } else {
             unset($config['best_placed_count']);
+        }
+
+        if (! empty($config['entrants']) && is_array($config['entrants']) && in_array($format, ['single_elimination', 'double_elimination'], true)) {
+            $config['entrants'] = StoreStageRequest::normalizeEntrants($config['entrants']);
+        } else {
+            unset($config['entrants']);
         }
 
         $this->merge([
