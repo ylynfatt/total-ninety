@@ -41,6 +41,7 @@ class StoreStageRequest extends FormRequest
             'advances_count' => ['nullable', 'integer', 'min:1'],
             'config' => ['nullable', 'array'],
             'config.legs_per_group' => ['sometimes', 'integer', 'in:1,2'],
+            'config.best_placed_count' => ['sometimes', 'integer', 'min:1', 'max:16'],
         ];
     }
 
@@ -50,18 +51,26 @@ class StoreStageRequest extends FormRequest
             'order' => $this->input('order', 0),
         ]);
 
-        // Coerce legs_per_group from string to int when it comes from a <Select>
-        // payload, and only keep the key if format is GroupStage (silently
-        // drop it otherwise so it doesn't pollute the JSON column).
+        // Coerce config ints that arrive as strings from form payloads, and
+        // only keep each key when the format supports it (silently drop it
+        // otherwise so it doesn't pollute the JSON column).
         $config = $this->input('config', []);
         if (! is_array($config)) {
             $config = [];
         }
 
-        if (isset($config['legs_per_group']) && $this->input('format') === 'group_stage') {
+        $format = $this->input('format');
+
+        if (isset($config['legs_per_group']) && $format === 'group_stage') {
             $config['legs_per_group'] = (int) $config['legs_per_group'];
         } else {
             unset($config['legs_per_group']);
+        }
+
+        if (! empty($config['best_placed_count']) && in_array($format, ['group_stage', 'conference'], true)) {
+            $config['best_placed_count'] = (int) $config['best_placed_count'];
+        } else {
+            unset($config['best_placed_count']);
         }
 
         $this->merge([
@@ -75,6 +84,8 @@ class StoreStageRequest extends FormRequest
             'name.unique' => 'A stage with that name already exists in this season.',
             'ends_on.after_or_equal' => 'End date must be on or after the start date.',
             'config.legs_per_group.in' => 'Legs per group must be either 1 (single round-robin) or 2 (home and away).',
+            'config.best_placed_count.min' => 'Best-placed qualifiers must be at least 1 (leave it blank for none).',
+            'config.best_placed_count.max' => 'Best-placed qualifiers cannot exceed 16.',
         ];
     }
 }

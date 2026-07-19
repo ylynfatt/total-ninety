@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import BestPlacedTable from '@/components/BestPlacedTable.vue';
 import Bracket from '@/components/Bracket.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import StandingsTable from '@/components/StandingsTable.vue';
@@ -99,6 +100,17 @@ interface GroupedStandingsEntry {
 // (since they're string keys). Vue/TS sees that as Record<string, ...>.
 type Standings = OverallStandings | Record<string, GroupedStandingsEntry> | null;
 
+interface BestPlacedRow extends StandingRow {
+    group_id: number;
+    group_name: string;
+}
+
+interface BestPlaced {
+    position: number;
+    qualify_count: number;
+    rows: BestPlacedRow[];
+}
+
 interface BracketRound {
     round: number;
     label: string;
@@ -119,6 +131,7 @@ const props = defineProps<{
     season: SeasonSummary;
     stage: Stage;
     standings: Standings;
+    bestPlaced: BestPlaced | null;
     bracket: BracketRound[] | null;
     can: {
         update: boolean;
@@ -154,6 +167,15 @@ defineOptions({
         ],
     },
 });
+
+/**
+ * 3 → "3rd", 4 → "4th" … for the best-placed card title.
+ */
+function ordinal(n: number): string {
+    const suffix = n % 100 >= 11 && n % 100 <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
+
+    return `${n}${suffix}`;
+}
 
 const hasGroupedFormat = computed(() => ['group_stage', 'conference'].includes(props.stage.format));
 const isBracketFormat = computed(() => ['single_elimination', 'double_elimination'].includes(props.stage.format));
@@ -305,6 +327,21 @@ function deleteGroup(group: Group) {
                     </h3>
                     <StandingsTable :rows="entry.rows" />
                 </section>
+            </CardContent>
+        </Card>
+
+        <!-- Cross-group ranking of best Nth-placed teams (World Cup / Euro style) -->
+        <Card v-if="bestPlaced && bestPlaced.rows.length > 0">
+            <CardHeader>
+                <CardTitle class="text-base">Ranking of {{ ordinal(bestPlaced.position) }}-placed teams</CardTitle>
+                <CardDescription>
+                    The best {{ bestPlaced.qualify_count }} of these {{ bestPlaced.rows.length }} teams
+                    {{ bestPlaced.qualify_count === 1 ? 'qualifies' : 'qualify' }} alongside the automatic qualifiers.
+                    Ranked across groups by points, goal difference, then goals scored.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <BestPlacedTable :rows="bestPlaced.rows" :qualify-count="bestPlaced.qualify_count" />
             </CardContent>
         </Card>
 

@@ -45,6 +45,7 @@ const form = useForm({
     advances_count: null as number | null,
     config: {
         legs_per_group: 1 as 1 | 2,
+        best_placed_count: null as number | null,
     },
 });
 
@@ -127,6 +128,26 @@ function submit() {
                     For 5 teams per group: 1 leg = 10 games/group · 2 legs = 20 games/group.
                 </p>
                 <InputError :message="form.errors['config.legs_per_group']" />
+            </div>
+
+            <div v-if="selectedFormat?.hasGroups" class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <div class="grid gap-2">
+                    <Label for="advances_count">Advance per group (optional)</Label>
+                    <Input id="advances_count" type="number" min="1" max="8" v-model="form.advances_count" placeholder="2" />
+                    <p class="text-xs text-muted-foreground">
+                        How many teams from each group qualify automatically. Defaults to 2.
+                    </p>
+                    <InputError :message="form.errors.advances_count" />
+                </div>
+
+                <div class="grid gap-2">
+                    <Label for="best_placed_count">Best-placed qualifiers (optional)</Label>
+                    <Input id="best_placed_count" type="number" min="1" max="16" v-model="form.config.best_placed_count" placeholder="None" />
+                    <p class="text-xs text-muted-foreground">
+                        Extra spots for the best teams finishing just below the cut — e.g. 8 best third-placed teams.
+                    </p>
+                    <InputError :message="form.errors['config.best_placed_count']" />
+                </div>
             </div>
 
             <div v-if="selectedFormat?.isBracket" class="rounded-md border border-sky-300 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-700/40 dark:bg-sky-950/40 dark:text-sky-200">
