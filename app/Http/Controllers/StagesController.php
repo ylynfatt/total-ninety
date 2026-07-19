@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Actions\GenerateFixtures;
+use App\Actions\SeedStageFromGroups;
 use App\Domain\Formats\EntrantSlot;
 use App\Domain\Standings\BestPlacedCalculator;
 use App\Domain\Standings\StandingsRegistry;
+use App\Enums\GameStatus;
 use App\Enums\StageFormat;
 use App\Http\Requests\StoreStageRequest;
 use App\Http\Requests\UpdateStageRequest;
@@ -67,11 +69,87 @@ class StagesController extends Controller
             'standings' => $this->buildStandings($stage, $standings),
             'bestPlaced' => $this->buildBestPlaced($stage, $bestPlaced),
             'bracket' => $stage->format->isBracket() ? $this->buildBracket($stage) : null,
+            'seeding' => $this->buildSeeding($stage),
             'can' => [
                 'update' => request()->user()?->can('update', $stage) ?? false,
                 'delete' => request()->user()?->can('delete', $stage) ?? false,
             ],
         ]);
+    }
+
+    /**
+     * Seeding review payload for the admin: every entrant slot resolved to
+     * a concrete team from the source stage's current standings, so they can
+     * confirm before the bracket fills. Null for viewers, non-entrant stages,
+     * or stages without generated round-1 games.
+     *
+     * @return null|array{
+     *     source: array{id: int, name: string},
+     *     source_complete: bool,
+     *     seeded: bool,
+     *     can_apply: bool,
+     *     error: string|null,
+     *     slots: array<int, array{label: string, team: array{id: int, name: string, acronym: string}|null, error: string|null}>,
+     * }
+     */
+    private function buildSeeding(Stage $stage): ?array
+    {
+        if (! $stage->format->isBracket() || ! (request()->user()?->can('update', $stage) ?? false)) {
+            return null;
+        }
+
+        if ($this->entrantSlots($stage) === []) {
+            return null;
+        }
+
+        $roundOne = $stage->games->where('round', 1);
+
+        if ($roundOne->isEmpty()) {
+            return null;
+        }
+
+        try {
+            $preview = app(SeedStageFromGroups::class)->preview($stage);
+        } catch (DomainException $e) {
+            return [
+                'source' => ['id' => 0, 'name' => ''],
+                'source_complete' => false,
+                'seeded' => false,
+                'can_apply' => false,
+                'error' => $e->getMessage(),
+                'slots' => [],
+            ];
+        }
+
+        $allResolved = collect($preview['slots'])->every(fn (array $slot) => $slot['error'] === null);
+        $allScheduled = $roundOne->every(fn (Game $game) => $game->status === GameStatus::Scheduled);
+
+        return [
+            ...$preview,
+            'seeded' => $roundOne->contains(fn (Game $game) => $game->home_team_id !== null || $game->away_team_id !== null),
+            'can_apply' => $allResolved && $allScheduled,
+            'error' => $allScheduled ? null : 'A round-1 game has already started; the bracket can no longer be re-seeded.',
+        ];
+    }
+
+    /**
+     * Apply the entrant seeding after the admin confirms the preview.
+     */
+    public function seedFromGroups(League $league, Season $season, Stage $stage, SeedStageFromGroups $action): RedirectResponse
+    {
+        $this->ensureSeasonInLeague($league, $season);
+        $this->ensureStageInSeason($season, $stage);
+        $this->authorize('update', $stage);
+
+        try {
+            $action->execute($stage);
+        } catch (DomainException $e) {
+            return back()->withErrors(['seeding' => $e->getMessage()]);
+        }
+
+        return redirect()
+            ->route('stages.show', [$league, $season, $stage])
+            ->with('status', 'Bracket seeded from group results.');
     }
 
     /**
@@ -261,29 +339,20 @@ class StagesController extends Controller
             'season' => $season->only(['id', 'name']),
             'stage' => $stage,
             'formats' => $this->formatOptions(),
-            'sourceStage' => $stage->format->isBracket() ? $this->buildSourceStage($season, $stage) : null,
+            'sourceStage' => $stage->format->isBracket() ? $this->buildSourceStage($stage) : null,
         ]);
     }
 
     /**
-     * The grouped stage that feeds this knockout stage — the nearest earlier
-     * stage (by order, then id) whose format has groups. Used by the entrant
-     * builder to offer "Winner Group A"-style slot options. Null when the
+     * The grouped stage that feeds this knockout stage, shaped for the
+     * entrant builder's "Winner Group A"-style slot options. Null when the
      * season has no earlier grouped stage.
      *
      * @return null|array{id: int, name: string, advances_count: int, best_placed_count: int, groups: array<int, array{id: int, name: string}>}
      */
-    private function buildSourceStage(Season $season, Stage $stage): ?array
+    private function buildSourceStage(Stage $stage): ?array
     {
-        $source = $season->stages()
-            ->where(fn ($q) => $q
-                ->where('order', '<', $stage->order)
-                ->orWhere(fn ($q2) => $q2->where('order', $stage->order)->where('id', '<', $stage->id)))
-            ->whereIn('format', [StageFormat::GroupStage->value, StageFormat::Conference->value])
-            ->orderByDesc('order')
-            ->orderByDesc('id')
-            ->with('groups:id,stage_id,name,order')
-            ->first();
+        $source = $stage->previousGroupedStage()?->load('groups:id,stage_id,name,order');
 
         if ($source === null) {
             return null;

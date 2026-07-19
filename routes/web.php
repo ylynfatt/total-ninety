@@ -82,6 +82,13 @@ Route::middleware('auth')->scopeBindings()->group(function () {
         'leagues/{league}/seasons/{season}/stages/{stage}/generate-fixtures',
         [StagesController::class, 'generateFixtures']
     )->name('stages.generate-fixtures');
+
+    // Fill a knockout stage's round-1 games from the previous grouped
+    // stage's standings, per the stage's entrant slot descriptors.
+    Route::post(
+        'leagues/{league}/seasons/{season}/stages/{stage}/seed-from-groups',
+        [StagesController::class, 'seedFromGroups']
+    )->name('stages.seed-from-groups');
 });
 
 // Groups (nested under a stage). For GroupStage / Conference formats only,
