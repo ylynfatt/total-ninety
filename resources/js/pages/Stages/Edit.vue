@@ -203,6 +203,102 @@ function clearEntrants(): void {
     entrantTokens.value = [];
 }
 
+/**
+ * Move a round-1 match (a pair of slots) up or down the order. Because the
+ * entrant list *is* the bracket tree — consecutive matches feed each later-
+ * round game — reordering matches is how the admin controls who can meet
+ * whom in the Round of 16 and beyond.
+ */
+function moveMatch(matchIndex: number, direction: -1 | 1): void {
+    const target = matchIndex + direction;
+
+    if (target < 0 || target >= entrantTokens.value.length / 2) {
+        return;
+    }
+
+    const tokens = [...entrantTokens.value];
+    const a = 2 * matchIndex;
+    const b = 2 * target;
+
+    [tokens[a], tokens[b]] = [tokens[b], tokens[a]];
+    [tokens[a + 1], tokens[b + 1]] = [tokens[b + 1], tokens[a + 1]];
+
+    entrantTokens.value = tokens;
+}
+
+/**
+ * Compact slot label for the projection panel: "W A" / "RU B" / "3rd #1".
+ */
+function shortLabel(token: string): string {
+    const parts = token.split('|');
+
+    if (parts[0] === 'best') {
+        return `3rd #${parts[1]}`;
+    }
+
+    const group = parts[1].replace(/^Group\s+/i, '');
+    const position = Number(parts[2]);
+    const prefix = position === 1 ? 'W' : position === 2 ? 'RU' : `${position}th`;
+
+    return `${prefix} ${group}`;
+}
+
+function roundLabelFor(gameCount: number): string {
+    const labels: Record<number, string> = { 1: 'Final', 2: 'Semifinals', 4: 'Quarterfinals', 8: 'Round of 16', 16: 'Round of 32' };
+
+    return labels[gameCount] ?? `Round of ${gameCount * 2}`;
+}
+
+function roundTag(gameCount: number, index: number): string {
+    const prefixes: Record<number, string> = { 1: 'F', 2: 'SF', 4: 'QF', 8: 'R16', 16: 'M' };
+    const prefix = prefixes[gameCount] ?? `R${gameCount * 2}`;
+
+    return gameCount === 1 ? prefix : `${prefix}${index + 1}`;
+}
+
+interface BracketNode {
+    tag: string;
+    teams?: [string, string];
+    children?: [BracketNode, BracketNode];
+}
+
+/**
+ * The projected bracket above the round-1 matches: for every later round, the
+ * games it produces and which matches feed them. The Round of 16 inlines its
+ * feeding matchups' teams (the round the admin most wants to verify); deeper
+ * rounds reference the tags (M1, R16-1 …) shown alongside. Null until every
+ * slot is filled and the count is a bracket-sized power of two.
+ */
+const bracketTree = computed<{ label: string; games: BracketNode[] }[] | null>(() => {
+    const tokens = entrantTokens.value;
+    const n = tokens.length;
+
+    if (n < 4 || (n & (n - 1)) !== 0 || tokens.some((token) => !token)) {
+        return null;
+    }
+
+    let level: BracketNode[] = [];
+    for (let i = 0; i < n / 2; i++) {
+        level.push({ tag: `M${i + 1}`, teams: [shortLabel(tokens[2 * i]), shortLabel(tokens[2 * i + 1])] });
+    }
+
+    const rounds: { label: string; games: BracketNode[] }[] = [];
+
+    while (level.length > 1) {
+        const gameCount = level.length / 2;
+        const next: BracketNode[] = [];
+
+        for (let j = 0; j < gameCount; j++) {
+            next.push({ tag: roundTag(gameCount, j), children: [level[2 * j], level[2 * j + 1]] });
+        }
+
+        rounds.push({ label: roundLabelFor(gameCount), games: next });
+        level = next;
+    }
+
+    return rounds;
+});
+
 const formatLabel = props.formats.find((f) => f.value === props.stage.format)?.label ?? props.stage.format;
 
 const pageBreadcrumbs = computed<BreadcrumbItem[]>(() => [
@@ -317,11 +413,30 @@ function submit() {
                     </div>
 
                     <div v-if="entrantTokens.length > 0" class="grid gap-2">
+                        <p class="text-xs text-muted-foreground">
+                            Round-1 matches, in bracket order. Reorder them so the right winners are set up to meet later — the projected paths below update as you go.
+                        </p>
                         <div
                             v-for="match in entrantTokens.length / 2"
                             :key="match"
                             class="flex flex-wrap items-center gap-2 rounded-md border bg-card px-3 py-2"
                         >
+                            <span class="flex shrink-0 flex-col leading-none">
+                                <button
+                                    type="button"
+                                    class="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                                    :disabled="match === 1"
+                                    aria-label="Move match up"
+                                    @click="moveMatch(match - 1, -1)"
+                                >▲</button>
+                                <button
+                                    type="button"
+                                    class="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                                    :disabled="match === entrantTokens.length / 2"
+                                    aria-label="Move match down"
+                                    @click="moveMatch(match - 1, 1)"
+                                >▼</button>
+                            </span>
                             <span class="w-16 shrink-0 font-display text-xs font-semibold uppercase text-muted-foreground">Match {{ match }}</span>
                             <Select v-model="entrantTokens[2 * (match - 1)]">
                                 <SelectTrigger class="h-8 w-56 text-xs"><SelectValue /></SelectTrigger>
@@ -336,6 +451,24 @@ function submit() {
                                     <SelectItem v-for="option in slotOptions" :key="option.value" :value="option.value">{{ option.label }}</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+                    </div>
+
+                    <div v-if="bracketTree" class="grid gap-3 rounded-md border border-dashed p-3">
+                        <p class="text-xs font-semibold text-muted-foreground">Projected bracket paths</p>
+                        <div v-for="round in bracketTree" :key="round.label" class="grid gap-1.5">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{{ round.label }}</p>
+                            <div v-for="game in round.games" :key="game.tag" class="rounded border bg-card px-2.5 py-1.5 text-xs">
+                                <span class="mr-1.5 font-display font-semibold text-muted-foreground">{{ game.tag }}</span>
+                                <template v-if="game.children && game.children[0].teams">
+                                    <span>{{ game.children[0].tag }} ({{ game.children[0].teams[0] }} v {{ game.children[0].teams[1] }})</span>
+                                    <span class="text-muted-foreground"> vs </span>
+                                    <span>{{ game.children[1].tag }} ({{ game.children[1].teams![0] }} v {{ game.children[1].teams![1] }})</span>
+                                </template>
+                                <template v-else-if="game.children">
+                                    <span class="text-muted-foreground">winner {{ game.children[0].tag }} vs winner {{ game.children[1].tag }}</span>
+                                </template>
+                            </div>
                         </div>
                     </div>
 
