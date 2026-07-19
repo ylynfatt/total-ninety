@@ -15,7 +15,7 @@ import { create as createGroup, destroy as destroyGroup, edit as editGroup } fro
 import { edit as editGroupTeams } from '@/routes/groups/teams';
 import { index as leaguesIndex, show as leagueShow } from '@/routes/leagues';
 import { show as seasonShow } from '@/routes/seasons';
-import { destroy, edit as stageEdit, generateFixtures } from '@/routes/stages';
+import { destroy, edit as stageEdit, generateFixtures, seedFromGroups } from '@/routes/stages';
 import type { BreadcrumbItem } from '@/types';
 
 interface LeagueSummary {
@@ -112,6 +112,21 @@ interface BestPlaced {
     rows: BestPlacedRow[];
 }
 
+interface SeedingSlot {
+    label: string;
+    team: { id: number; name: string; acronym: string } | null;
+    error: string | null;
+}
+
+interface Seeding {
+    source: { id: number; name: string };
+    source_complete: boolean;
+    seeded: boolean;
+    can_apply: boolean;
+    error: string | null;
+    slots: SeedingSlot[];
+}
+
 interface BracketRound {
     round: number;
     label: string;
@@ -134,6 +149,7 @@ const props = defineProps<{
     standings: Standings;
     bestPlaced: BestPlaced | null;
     bracket: BracketRound[] | null;
+    seeding: Seeding | null;
     can: {
         update: boolean;
         delete: boolean;
@@ -208,6 +224,36 @@ const generateForm = useForm({});
 function generate() {
     generateForm.post(
         generateFixtures([props.league.slug, props.season.id, props.stage.id]).url,
+        { preserveScroll: true },
+    );
+}
+
+/**
+ * Round-1 matchups from the seeding preview: consecutive slot pairs.
+ */
+const seedingMatches = computed<{ home: SeedingSlot; away: SeedingSlot }[]>(() => {
+    if (!props.seeding) return [];
+
+    const matches: { home: SeedingSlot; away: SeedingSlot }[] = [];
+
+    for (let i = 0; i + 1 < props.seeding.slots.length; i += 2) {
+        matches.push({ home: props.seeding.slots[i], away: props.seeding.slots[i + 1] });
+    }
+
+    return matches;
+});
+
+const seedForm = useForm({});
+
+function applySeeding() {
+    const verb = props.seeding?.seeded ? 'Re-seed' : 'Seed';
+
+    if (!confirm(`${verb} the bracket from the group results shown? Round-1 teams will be ${props.seeding?.seeded ? 'overwritten' : 'filled in'}.`)) {
+        return;
+    }
+
+    seedForm.post(
+        seedFromGroups([props.league.slug, props.season.id, props.stage.id]).url,
         { preserveScroll: true },
     );
 }
@@ -296,6 +342,51 @@ function deleteGroup(group: Group) {
                         </div>
                     </li>
                 </ul>
+            </CardContent>
+        </Card>
+
+        <!-- Seeding review: entrant slots resolved against the source stage -->
+        <Card v-if="seeding">
+            <CardHeader>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <CardTitle class="text-base">Seed from {{ seeding.source.name || 'group stage' }}</CardTitle>
+                        <CardDescription>
+                            Review who fills each round-1 slot based on the current standings, then apply.
+                        </CardDescription>
+                    </div>
+                    <Button v-if="seeding.slots.length > 0" size="sm" :disabled="!seeding.can_apply || seedForm.processing" @click="applySeeding">
+                        {{ seeding.seeded ? 'Re-apply seeding' : 'Apply seeding' }}
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent class="flex flex-col gap-3">
+                <div v-if="!seeding.source_complete && seeding.slots.length > 0" class="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700/40 dark:bg-amber-950/40 dark:text-amber-200">
+                    Not every game in {{ seeding.source.name }} has finished — these qualifiers can still change. You can seed now and re-apply later, as long as no knockout game has kicked off.
+                </div>
+
+                <p v-if="seeding.error" class="text-sm text-destructive">{{ seeding.error }}</p>
+                <p v-if="seedForm.errors.seeding" class="text-sm text-destructive">{{ seedForm.errors.seeding }}</p>
+
+                <div v-if="seedingMatches.length > 0" class="grid gap-1.5 sm:grid-cols-2">
+                    <div
+                        v-for="(match, index) in seedingMatches"
+                        :key="index"
+                        class="flex items-center gap-2 rounded-md border bg-card px-3 py-1.5 text-sm"
+                    >
+                        <span class="w-8 shrink-0 font-display text-xs font-semibold uppercase text-muted-foreground">{{ index + 1 }}</span>
+                        <span class="flex min-w-0 flex-1 flex-col">
+                            <span :class="match.home.team ? '' : 'text-destructive'">
+                                {{ match.home.team?.name ?? match.home.error ?? '—' }}
+                                <span class="text-xs text-muted-foreground">({{ match.home.label }})</span>
+                            </span>
+                            <span :class="match.away.team ? '' : 'text-destructive'">
+                                {{ match.away.team?.name ?? match.away.error ?? '—' }}
+                                <span class="text-xs text-muted-foreground">({{ match.away.label }})</span>
+                            </span>
+                        </span>
+                    </div>
+                </div>
             </CardContent>
         </Card>
 

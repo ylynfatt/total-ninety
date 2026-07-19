@@ -51,4 +51,23 @@ class Stage extends Model
     {
         return $this->hasMany(Game::class);
     }
+
+    /**
+     * The grouped stage that feeds this one — the nearest earlier stage in
+     * the same season (by order, then id) whose format has groups. Used to
+     * resolve knockout entrant slots ("Winner Group A") against real
+     * standings. Null when no grouped stage precedes this one.
+     */
+    public function previousGroupedStage(): ?Stage
+    {
+        return self::query()
+            ->where('season_id', $this->season_id)
+            ->where(fn ($q) => $q
+                ->where('order', '<', $this->order)
+                ->orWhere(fn ($q2) => $q2->where('order', $this->order)->where('id', '<', $this->id)))
+            ->whereIn('format', [StageFormat::GroupStage->value, StageFormat::Conference->value])
+            ->orderByDesc('order')
+            ->orderByDesc('id')
+            ->first();
+    }
 }
