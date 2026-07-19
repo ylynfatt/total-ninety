@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\GameStatus;
 use App\Http\Requests\StoreResultRequest;
 use App\Http\Requests\UpdateGameScheduleRequest;
 use App\Models\Game;
@@ -62,6 +63,17 @@ class GameFixturesController extends Controller
     public function storeResult(StoreResultRequest $request, League $league, Season $season, Stage $stage, Game $game): RedirectResponse
     {
         $this->ensureChain($league, $season, $stage, $game);
+
+        // Entering a final score on a game that never went through the live
+        // lifecycle is a declaration that the game was played. Marking it
+        // Full Time (before the result lands, so observers see a final game)
+        // keeps manual entry consistent with the gamecast path: bracket
+        // winners advance and stage-completeness checks see the game as done.
+        // In-progress games are left alone — the editor is a correction tool
+        // there, not a way to end the match.
+        if (in_array($game->status, [GameStatus::Scheduled, GameStatus::Postponed], true)) {
+            $game->update(['status' => GameStatus::FullTime]);
+        }
 
         // updateOrCreate handles both first-time entry and edits, since each
         // game has a unique constraint on game_id in the results table.
