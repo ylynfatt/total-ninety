@@ -67,6 +67,7 @@ interface Stage {
     order: number;
     starts_on: string | null;
     ends_on: string | null;
+    advances_count: number | null;
     config: Record<string, unknown> | null;
     groups: Group[];
     games: Game[];
@@ -178,6 +179,14 @@ function ordinal(n: number): string {
 }
 
 const hasGroupedFormat = computed(() => ['group_stage', 'conference'].includes(props.stage.format));
+
+/**
+ * Qualification zones for the group tables. Only drawn when the stage says
+ * how many advance per group — otherwise the tables keep the plain leader
+ * highlight and don't imply a qualification cut that doesn't exist.
+ */
+const groupQualifyCount = computed<number | null>(() => props.stage.advances_count);
+const groupBestPlacedPosition = computed<number | null>(() => props.bestPlaced?.position ?? null);
 const isBracketFormat = computed(() => ['single_elimination', 'double_elimination'].includes(props.stage.format));
 const fixturesGenerated = computed(() => props.stage.games.length > 0);
 
@@ -318,14 +327,20 @@ function deleteGroup(group: Group) {
         <Card v-if="groupedStandings">
             <CardHeader>
                 <CardTitle class="text-base">Standings</CardTitle>
-                <CardDescription>One table per group.</CardDescription>
+                <CardDescription>
+                    <template v-if="groupQualifyCount">
+                        Top {{ groupQualifyCount }} in each group qualify automatically<template v-if="groupBestPlacedPosition">;
+                        <span class="text-amber-600 dark:text-amber-400">amber</span> rows can still advance as best-placed teams (ranked below)</template>.
+                    </template>
+                    <template v-else>One table per group.</template>
+                </CardDescription>
             </CardHeader>
             <CardContent class="flex flex-col gap-6">
                 <section v-for="entry in groupedStandings" :key="entry.group.id" class="flex flex-col gap-2">
                     <h3 class="text-sm font-semibold tracking-wide text-muted-foreground">
                         {{ entry.group.name }}
                     </h3>
-                    <StandingsTable :rows="entry.rows" />
+                    <StandingsTable :rows="entry.rows" :qualify-count="groupQualifyCount" :best-placed-position="groupBestPlacedPosition" />
                 </section>
             </CardContent>
         </Card>

@@ -94,6 +94,20 @@ describe('Stage show bestPlaced prop', function () {
             );
     });
 
+    it('exposes advances_count so the group tables can draw qualification zones', function () {
+        [$league, $season, $stage] = bestPlacedStageScaffold([
+            'advances_count' => 2,
+            'config' => ['best_placed_count' => 1],
+        ]);
+
+        $this->get("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}")
+            ->assertSuccessful()
+            ->assertInertia(fn ($page) => $page
+                ->where('stage.advances_count', 2)
+                ->where('bestPlaced.position', 3)
+            );
+    });
+
     it('derives the ranked position from advances_count', function () {
         [$league, $season, $stage] = bestPlacedStageScaffold([
             'advances_count' => 1,

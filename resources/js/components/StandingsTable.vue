@@ -14,9 +14,50 @@ interface StandingRow {
     form: string;
 }
 
-defineProps<{
-    rows: StandingRow[];
-}>();
+/**
+ * Optional qualification zones (World Cup style group tables):
+ *   - qualifyCount: top N rows qualify automatically → volt highlight.
+ *   - bestPlacedPosition: the row at this 1-based position might qualify as a
+ *     best-placed team → amber highlight (only used when qualifyCount is set).
+ * When qualifyCount is absent the table falls back to highlighting the leader.
+ */
+const props = withDefaults(
+    defineProps<{
+        rows: StandingRow[];
+        qualifyCount?: number | null;
+        bestPlacedPosition?: number | null;
+    }>(),
+    { qualifyCount: null, bestPlacedPosition: null },
+);
+
+type RowZone = 'qualify' | 'best-placed' | null;
+
+function rowZone(index: number): RowZone {
+    if (props.qualifyCount === null) {
+        return index === 0 ? 'qualify' : null;
+    }
+
+    if (index < props.qualifyCount) {
+        return 'qualify';
+    }
+
+    if (props.bestPlacedPosition !== null && index === props.bestPlacedPosition - 1) {
+        return 'best-placed';
+    }
+
+    return null;
+}
+
+function rowClasses(index: number): string {
+    switch (rowZone(index)) {
+        case 'qualify':
+            return 'border-l-volt bg-volt/5';
+        case 'best-placed':
+            return 'border-l-amber-400 bg-amber-400/10';
+        default:
+            return 'border-l-transparent';
+    }
+}
 
 function formColor(letter: string): string {
     switch (letter) {
@@ -55,16 +96,16 @@ function formColor(letter: string): string {
                     v-for="(row, index) in rows"
                     :key="row.team_id"
                     class="border-l-2 hover:bg-muted/30"
-                    :class="index === 0 ? 'border-l-volt bg-volt/5' : 'border-l-transparent'"
+                    :class="rowClasses(index)"
                 >
-                    <td class="px-3 py-2 text-right font-display text-base tabular-nums" :class="index === 0 ? 'font-bold' : 'text-muted-foreground'">
+                    <td class="px-3 py-2 text-right font-display text-base tabular-nums" :class="rowZone(index) === 'qualify' ? 'font-bold' : 'text-muted-foreground'">
                         {{ index + 1 }}
                     </td>
                     <td class="px-3 py-2">
                         <span class="mr-2 inline-block w-10 rounded bg-muted px-1 text-center font-display text-xs font-semibold uppercase text-muted-foreground">
                             {{ row.team_acronym }}
                         </span>
-                        <span :class="{ 'font-semibold': index === 0 }">{{ row.team_name }}</span>
+                        <span :class="{ 'font-semibold': rowZone(index) === 'qualify' }">{{ row.team_name }}</span>
                     </td>
                     <td class="hidden px-2 py-2 text-right tabular-nums sm:table-cell">{{ row.played }}</td>
                     <td class="hidden px-2 py-2 text-right tabular-nums md:table-cell">{{ row.won }}</td>
