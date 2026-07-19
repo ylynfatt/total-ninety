@@ -117,10 +117,13 @@ describe('SeedStageFromGroups', function () {
 
         $games = roundOneGames($knockout);
 
+        // Allocation keeps thirds out of their own group: Alpha One (Group A
+        // winner) faces Beta Two, not the Group-A third Alpha Two — which the
+        // naive rank-based placement would have produced as a rematch.
         expect($games[0]->home_team_id)->toBe($teams['Alpha One']->id);
-        expect($games[0]->away_team_id)->toBe($teams['Alpha Two']->id);
+        expect($games[0]->away_team_id)->toBe($teams['Beta Two']->id);
         expect($games[1]->home_team_id)->toBe($teams['Beta One']->id);
-        expect($games[1]->away_team_id)->toBe($teams['Beta Two']->id);
+        expect($games[1]->away_team_id)->toBe($teams['Alpha Two']->id);
     });
 
     it('previews the resolution without writing anything', function () {
@@ -132,8 +135,14 @@ describe('SeedStageFromGroups', function () {
         expect($preview['source_complete'])->toBeTrue();
         expect($preview['slots'][0]['label'])->toBe('Winner Group A');
         expect($preview['slots'][0]['team']['name'])->toBe('Alpha One');
-        expect($preview['slots'][3]['label'])->toBe('Best-placed #1');
-        expect($preview['slots'][3]['team']['name'])->toBe('Beta Two');
+        // Best-placed slots are a pooled, allocation-filled set: labelled by
+        // the placed position (advances_count 1 → 2nd) and tagged with the
+        // group each allocated team actually came from.
+        expect($preview['slots'][1]['label'])->toBe('Best 2nd-placed');
+        expect($preview['slots'][1]['team']['name'])->toBe('Beta Two');
+        expect($preview['slots'][1]['origin_group'])->toBe('Group B');
+        expect($preview['slots'][1]['rematch'])->toBeFalse();
+        expect($preview['slots'][3]['team']['name'])->toBe('Alpha Two');
 
         expect(roundOneGames($knockout)->every(fn (Game $game) => $game->home_team_id === null))->toBeTrue();
     });
@@ -156,8 +165,11 @@ describe('SeedStageFromGroups', function () {
 
         $action->execute($knockout->fresh());
 
+        // Alpha Two now wins Group A; Alpha One drops to the third-placed pool
+        // and is allocated away from the Group-A slot, so match 1 is
+        // Alpha Two v Beta Two.
         expect(roundOneGames($knockout)[0]->home_team_id)->toBe($teams['Alpha Two']->id);
-        expect(roundOneGames($knockout)[0]->away_team_id)->toBe($teams['Alpha One']->id);
+        expect(roundOneGames($knockout)[0]->away_team_id)->toBe($teams['Beta Two']->id);
     });
 
     it('refuses to re-seed once a round-1 game has started', function () {
