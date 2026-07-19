@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\GenerateFixtures;
+use App\Domain\Standings\BestPlacedCalculator;
 use App\Domain\Standings\StandingsRegistry;
 use App\Enums\StageFormat;
 use App\Http\Requests\StoreStageRequest;
@@ -42,7 +43,7 @@ class StagesController extends Controller
             ->with('status', "Stage \"{$stage->name}\" created.");
     }
 
-    public function show(League $league, Season $season, Stage $stage, StandingsRegistry $standings): Response
+    public function show(League $league, Season $season, Stage $stage, StandingsRegistry $standings, BestPlacedCalculator $bestPlaced): Response
     {
         $this->ensureSeasonInLeague($league, $season);
         $this->ensureStageInSeason($season, $stage);
@@ -63,6 +64,7 @@ class StagesController extends Controller
             'season' => $season->only(['id', 'name']),
             'stage' => $stage,
             'standings' => $this->buildStandings($stage, $standings),
+            'bestPlaced' => $this->buildBestPlaced($stage, $bestPlaced),
             'bracket' => $stage->format->isBracket() ? $this->buildBracket($stage) : null,
             'can' => [
                 'update' => request()->user()?->can('update', $stage) ?? false,
@@ -106,6 +108,38 @@ class StagesController extends Controller
 
         return [
             'overall' => $calculator->calculate($stage)
+                ->map(fn ($row) => $row->toArray())
+                ->all(),
+        ];
+    }
+
+    /**
+     * Cross-group ranking of the teams finishing just below the automatic
+     * qualification spots (position = advances-per-group + 1, so with the
+     * default 2 qualifiers per group this is the third-placed table). Only
+     * built when the stage opts in via config.best_placed_count — the number
+     * of these teams that qualify for the next stage.
+     *
+     * @return null|array{position: int, qualify_count: int, rows: array<int, array<string, mixed>>}
+     */
+    private function buildBestPlaced(Stage $stage, BestPlacedCalculator $calculator): ?array
+    {
+        if (! $stage->format->hasGroups() || $stage->groups->isEmpty()) {
+            return null;
+        }
+
+        $qualifyCount = (int) ($stage->config['best_placed_count'] ?? 0);
+
+        if ($qualifyCount < 1) {
+            return null;
+        }
+
+        $position = ($stage->advances_count ?? 2) + 1;
+
+        return [
+            'position' => $position,
+            'qualify_count' => $qualifyCount,
+            'rows' => $calculator->calculate($stage, $position)
                 ->map(fn ($row) => $row->toArray())
                 ->all(),
         ];

@@ -43,6 +43,7 @@ class UpdateStageRequest extends FormRequest
             'advances_count' => ['nullable', 'integer', 'min:1'],
             'config' => ['nullable', 'array'],
             'config.legs_per_group' => ['sometimes', 'integer', 'in:1,2'],
+            'config.best_placed_count' => ['sometimes', 'integer', 'min:1', 'max:16'],
         ];
     }
 
@@ -60,6 +61,12 @@ class UpdateStageRequest extends FormRequest
             $config['legs_per_group'] = (int) $config['legs_per_group'];
         } else {
             unset($config['legs_per_group']);
+        }
+
+        if (! empty($config['best_placed_count']) && in_array($format, ['group_stage', 'conference'], true)) {
+            $config['best_placed_count'] = (int) $config['best_placed_count'];
+        } else {
+            unset($config['best_placed_count']);
         }
 
         $this->merge([
@@ -86,6 +93,8 @@ class UpdateStageRequest extends FormRequest
             'name.unique' => 'A stage with that name already exists in this season.',
             'ends_on.after_or_equal' => 'End date must be on or after the start date.',
             'config.legs_per_group.in' => 'Legs per group must be either 1 (single round-robin) or 2 (home and away).',
+            'config.best_placed_count.min' => 'Best-placed qualifiers must be at least 1 (leave it blank for none).',
+            'config.best_placed_count.max' => 'Best-placed qualifiers cannot exceed 16.',
         ];
     }
 }

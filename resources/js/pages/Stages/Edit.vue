@@ -47,6 +47,7 @@ const props = defineProps<{
 }>();
 
 const currentLegs = (props.stage.config?.legs_per_group as 1 | 2 | undefined) ?? 1;
+const currentBestPlaced = (props.stage.config?.best_placed_count as number | undefined) ?? null;
 
 const form = useForm({
     name: props.stage.name,
@@ -56,8 +57,11 @@ const form = useForm({
     advances_count: props.stage.advances_count,
     config: {
         legs_per_group: currentLegs,
+        best_placed_count: currentBestPlaced,
     },
 });
+
+const hasGroupedFormat = ['group_stage', 'conference'].includes(props.stage.format);
 
 const formatLabel = props.formats.find((f) => f.value === props.stage.format)?.label ?? props.stage.format;
 
@@ -137,6 +141,26 @@ function submit() {
                     Changing this only affects new fixtures generated after the change.
                 </p>
                 <InputError :message="form.errors['config.legs_per_group']" />
+            </div>
+
+            <div v-if="hasGroupedFormat" class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <div class="grid gap-2">
+                    <Label for="advances_count">Advance per group (optional)</Label>
+                    <Input id="advances_count" type="number" min="1" max="8" v-model="form.advances_count" placeholder="2" />
+                    <p class="text-xs text-muted-foreground">
+                        How many teams from each group qualify automatically. Defaults to 2.
+                    </p>
+                    <InputError :message="form.errors.advances_count" />
+                </div>
+
+                <div class="grid gap-2">
+                    <Label for="best_placed_count">Best-placed qualifiers (optional)</Label>
+                    <Input id="best_placed_count" type="number" min="1" max="16" v-model="form.config.best_placed_count" placeholder="None" />
+                    <p class="text-xs text-muted-foreground">
+                        Extra spots for the best teams finishing just below the cut — e.g. 8 best third-placed teams.
+                    </p>
+                    <InputError :message="form.errors['config.best_placed_count']" />
+                </div>
             </div>
 
             <div class="flex items-center gap-3">
