@@ -2,8 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Domain\Formats\EntrantSlot;
 use App\Enums\StageFormat;
 use App\Models\Season;
+use Closure;
+use DomainException;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -42,7 +45,62 @@ class StoreStageRequest extends FormRequest
             'config' => ['nullable', 'array'],
             'config.legs_per_group' => ['sometimes', 'integer', 'in:1,2'],
             'config.best_placed_count' => ['sometimes', 'integer', 'min:1', 'max:16'],
+            'config.entrants' => ['sometimes', 'array', self::entrantsRule()],
         ];
+    }
+
+    /**
+     * Shared shape check for config.entrants: a power-of-two-sized list of
+     * valid slot descriptors (see EntrantSlot).
+     */
+    public static function entrantsRule(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (! is_array($value)) {
+                return;
+            }
+
+            $count = count($value);
+
+            if ($count < 2 || ($count & ($count - 1)) !== 0) {
+                $fail("Entrant slots must total a power of two (2, 4, 8, 16, …) to form a bracket; got {$count}.");
+
+                return;
+            }
+
+            foreach (array_values($value) as $index => $slot) {
+                try {
+                    EntrantSlot::fromArray(is_array($slot) ? $slot : []);
+                } catch (DomainException $e) {
+                    $fail('Slot '.($index + 1).': '.$e->getMessage());
+
+                    return;
+                }
+            }
+        };
+    }
+
+    /**
+     * Canonicalize an incoming entrants list (string ints → ints, dropped
+     * extraneous keys) while leaving invalid slots untouched for the
+     * validator to reject with a useful message.
+     *
+     * @param  array<int, mixed>  $entrants
+     * @return array<int, mixed>
+     */
+    public static function normalizeEntrants(array $entrants): array
+    {
+        return array_map(function (mixed $slot): mixed {
+            if (! is_array($slot)) {
+                return $slot;
+            }
+
+            try {
+                return EntrantSlot::fromArray($slot)->toArray();
+            } catch (DomainException) {
+                return $slot;
+            }
+        }, array_values($entrants));
     }
 
     protected function prepareForValidation(): void
@@ -71,6 +129,12 @@ class StoreStageRequest extends FormRequest
             $config['best_placed_count'] = (int) $config['best_placed_count'];
         } else {
             unset($config['best_placed_count']);
+        }
+
+        if (! empty($config['entrants']) && is_array($config['entrants']) && in_array($format, ['single_elimination', 'double_elimination'], true)) {
+            $config['entrants'] = self::normalizeEntrants($config['entrants']);
+        } else {
+            unset($config['entrants']);
         }
 
         $this->merge([

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\GenerateFixtures;
+use App\Domain\Formats\EntrantSlot;
 use App\Domain\Standings\BestPlacedCalculator;
 use App\Domain\Standings\StandingsRegistry;
 use App\Enums\StageFormat;
@@ -163,6 +164,8 @@ class StagesController extends Controller
             return null;
         }
 
+        $entrants = $this->entrantSlots($stage);
+
         return $byRound
             ->map(fn ($games, $round) => [
                 'round' => (int) $round,
@@ -172,6 +175,8 @@ class StagesController extends Controller
                     'bracket_position' => $game->bracket_position,
                     'home_team' => $game->homeTeam?->only(['id', 'name', 'acronym']),
                     'away_team' => $game->awayTeam?->only(['id', 'name', 'acronym']),
+                    'home_placeholder' => $this->slotPlaceholder($entrants, (int) $round, $game, 'home'),
+                    'away_placeholder' => $this->slotPlaceholder($entrants, (int) $round, $game, 'away'),
                     'home_team_score' => $game->result?->home_team_score,
                     'away_team_score' => $game->result?->away_team_score,
                     'status' => $game->status->value,
@@ -180,6 +185,43 @@ class StagesController extends Controller
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * The stage's entrant slot descriptors, or [] when unset/invalid — a
+     * malformed config should degrade to plain TBD slots, not a 500.
+     *
+     * @return array<int, EntrantSlot>
+     */
+    private function entrantSlots(Stage $stage): array
+    {
+        try {
+            return EntrantSlot::listForStage($stage);
+        } catch (DomainException) {
+            return [];
+        }
+    }
+
+    /**
+     * Descriptor label for an unfilled round-1 slot ("Winner Group A"),
+     * null once a real team occupies it or for rounds the descriptors
+     * don't cover.
+     *
+     * @param  array<int, EntrantSlot>  $entrants
+     */
+    private function slotPlaceholder(array $entrants, int $round, Game $game, string $side): ?string
+    {
+        if ($round !== 1 || $entrants === []) {
+            return null;
+        }
+
+        if (($side === 'home' ? $game->home_team_id : $game->away_team_id) !== null) {
+            return null;
+        }
+
+        $slot = $entrants[2 * $game->bracket_position + ($side === 'home' ? 0 : 1)] ?? null;
+
+        return $slot?->label();
     }
 
     /**
@@ -219,7 +261,43 @@ class StagesController extends Controller
             'season' => $season->only(['id', 'name']),
             'stage' => $stage,
             'formats' => $this->formatOptions(),
+            'sourceStage' => $stage->format->isBracket() ? $this->buildSourceStage($season, $stage) : null,
         ]);
+    }
+
+    /**
+     * The grouped stage that feeds this knockout stage — the nearest earlier
+     * stage (by order, then id) whose format has groups. Used by the entrant
+     * builder to offer "Winner Group A"-style slot options. Null when the
+     * season has no earlier grouped stage.
+     *
+     * @return null|array{id: int, name: string, advances_count: int, best_placed_count: int, groups: array<int, array{id: int, name: string}>}
+     */
+    private function buildSourceStage(Season $season, Stage $stage): ?array
+    {
+        $source = $season->stages()
+            ->where(fn ($q) => $q
+                ->where('order', '<', $stage->order)
+                ->orWhere(fn ($q2) => $q2->where('order', $stage->order)->where('id', '<', $stage->id)))
+            ->whereIn('format', [StageFormat::GroupStage->value, StageFormat::Conference->value])
+            ->orderByDesc('order')
+            ->orderByDesc('id')
+            ->with('groups:id,stage_id,name,order')
+            ->first();
+
+        if ($source === null) {
+            return null;
+        }
+
+        return [
+            'id' => $source->id,
+            'name' => $source->name,
+            'advances_count' => $source->advances_count ?? 2,
+            'best_placed_count' => (int) ($source->config['best_placed_count'] ?? 0),
+            'groups' => $source->groups
+                ->map(fn ($group) => ['id' => $group->id, 'name' => $group->name])
+                ->all(),
+        ];
     }
 
     public function update(UpdateStageRequest $request, League $league, Season $season, Stage $stage): RedirectResponse

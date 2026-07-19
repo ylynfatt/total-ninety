@@ -127,3 +127,47 @@ describe('SingleEliminationGenerator', function () {
         }
     });
 });
+
+describe('SingleEliminationGenerator (entrant mode)', function () {
+    function stageWithEntrants(int $slotCount): Stage
+    {
+        $entrants = [];
+        for ($i = 0; $i < $slotCount; $i++) {
+            $entrants[] = ['type' => 'best_placed', 'rank' => $i + 1];
+        }
+
+        $season = Season::factory()->create();
+
+        return Stage::factory()->singleElimination()->create([
+            'season_id' => $season->id,
+            'config' => ['entrants' => $entrants],
+        ]);
+    }
+
+    it('emits an all-TBD bracket sized to the entrant list, ignoring season teams', function () {
+        $stage = stageWithEntrants(8);
+        $stage->season->teams()->attach(Team::factory()->count(3)->create());
+
+        $pairs = (new SingleEliminationGenerator)->generate($stage->fresh('season.teams'));
+
+        expect($pairs)->toHaveCount(7); // 4 + 2 + 1
+        expect(roundOne($pairs))->toHaveCount(4);
+
+        foreach ($pairs as $pair) {
+            expect($pair['home_team_id'])->toBeNull();
+            expect($pair['away_team_id'])->toBeNull();
+        }
+    });
+
+    it('lays out sequential bracket positions per round', function () {
+        $pairs = (new SingleEliminationGenerator)->generate(stageWithEntrants(8));
+
+        expect(roundOne($pairs)->pluck('bracket_position')->all())->toBe([0, 1, 2, 3]);
+        expect($pairs->where('round', 2)->pluck('bracket_position')->values()->all())->toBe([0, 1]);
+        expect($pairs->where('round', 3)->pluck('bracket_position')->values()->all())->toBe([0]);
+    });
+
+    it('rejects an entrant count that is not a power of two', function () {
+        (new SingleEliminationGenerator)->generate(stageWithEntrants(6));
+    })->throws(DomainException::class);
+});
