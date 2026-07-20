@@ -189,6 +189,8 @@ function applyClassicTemplate(): void {
     }
 
     slots.value = [...firstHalf, ...secondHalf];
+    selected.value = null;
+    selectedMatch.value = null;
 }
 
 /**
@@ -226,10 +228,14 @@ function applySeededTemplate(): void {
     }
 
     slots.value = seeds.map((seed) => seedList[seed - 1]);
+    selected.value = null;
+    selectedMatch.value = null;
 }
 
 function clearEntrants(): void {
     slots.value = Array.from({ length: bracketSize.value }, () => null);
+    selected.value = null;
+    selectedMatch.value = null;
 }
 
 /**
@@ -415,6 +421,55 @@ function onMatchDrop(event: DragEvent, index: number): void {
     onDragEnd();
 }
 
+// ----- tap to place (works on touch, where native drag never fires) -----
+
+const selected = ref<{ token: string; from: number | null } | null>(null);
+
+function isSelected(token: string, from: number | null): boolean {
+    return selected.value?.token === token && selected.value.from === from;
+}
+
+function onChipTap(token: string): void {
+    selected.value = isSelected(token, null) ? null : { token, from: null };
+}
+
+function onSlotTap(index: number): void {
+    if (selected.value) {
+        // Tapping the slot a chip was picked up from just cancels the pickup.
+        if (selected.value.from === index) {
+            selected.value = null;
+
+            return;
+        }
+
+        assignSlot(selected.value.token, index, selected.value.from);
+        selected.value = null;
+
+        return;
+    }
+
+    const token = slots.value[index];
+
+    if (token !== null) {
+        selected.value = { token, from: index };
+    }
+}
+
+// Tap a matchup's handle to pick it up, then another to drop it there.
+const selectedMatch = ref<number | null>(null);
+
+function onMatchHandleTap(index: number): void {
+    if (selectedMatch.value === null || selectedMatch.value === index) {
+        selectedMatch.value = selectedMatch.value === index ? null : index;
+
+        return;
+    }
+
+    const to = selectedMatch.value < index ? index - 1 : index;
+    moveMatch(selectedMatch.value, to);
+    selectedMatch.value = null;
+}
+
 function roundLabelFor(gameCount: number): string {
     const labels: Record<number, string> = { 1: 'Final', 2: 'Semifinals', 4: 'Quarterfinals', 8: 'Round of 16', 16: 'Round of 32' };
 
@@ -482,7 +537,7 @@ function submit() {
 <template>
     <Head :title="`Edit ${stage.name}`" />
 
-    <div class="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 sm:p-6">
+    <div class="mx-auto flex w-full flex-col gap-6 p-4 sm:p-6" :class="isBracketFormat ? 'max-w-6xl' : 'max-w-2xl'">
         <Breadcrumbs :breadcrumbs="pageBreadcrumbs" />
 
         <header>
@@ -493,13 +548,13 @@ function submit() {
         </header>
 
         <form class="flex flex-col gap-5" @submit.prevent="submit">
-            <div class="grid gap-2">
+            <div class="grid max-w-2xl gap-2">
                 <Label for="name">Name</Label>
                 <Input id="name" v-model="form.name" required autofocus />
                 <InputError :message="form.errors.name" />
             </div>
 
-            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div class="grid max-w-2xl grid-cols-1 gap-5 sm:grid-cols-2">
                 <div class="grid gap-2">
                     <Label for="starts_on">Starts on (optional)</Label>
                     <Input id="starts_on" type="date" v-model="form.starts_on" />
@@ -513,7 +568,7 @@ function submit() {
                 </div>
             </div>
 
-            <div class="grid gap-2">
+            <div class="grid max-w-2xl gap-2">
                 <Label for="order">Order</Label>
                 <Input id="order" type="number" min="0" max="65535" v-model="form.order" />
                 <InputError :message="form.errors.order" />
@@ -571,94 +626,106 @@ function submit() {
                     </div>
 
                     <p class="text-xs text-muted-foreground">
-                        Drag a qualifier onto a slot. Drag a matchup by its <span class="font-semibold">⠿</span> handle to move it — the later rounds show who's set up to meet.
+                        Tap a qualifier, then a slot to place it — or drag it across. Reorder a matchup with its <span class="font-semibold">⠿</span> handle (drag it, or tap the handle then another). The later rounds show who's set up to meet.
                     </p>
 
-                    <!-- Qualifier palette -->
-                    <div class="flex flex-col gap-2.5 rounded-md border bg-muted/40 p-3">
-                        <div v-for="group in paletteGroups" :key="group.label" class="flex flex-col gap-1.5">
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{{ group.label }}</p>
-                            <div class="flex flex-wrap gap-1.5">
-                                <span
-                                    v-for="chip in group.chips"
-                                    :key="chip.token"
-                                    :draggable="!chip.placed"
-                                    class="inline-flex select-none items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-xs font-medium"
-                                    :class="chip.placed ? 'opacity-40' : 'cursor-grab'"
-                                    @dragstart="onChipDragStart($event, chip.token, null)"
-                                    @dragend="onDragEnd"
-                                >
-                                    <span class="h-2 w-2 rounded-full" :class="dotClass(chip.kind)" />
-                                    {{ chip.label }}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Visual bracket -->
-                    <div class="overflow-x-auto pb-1">
-                        <div class="flex min-w-max items-stretch gap-5">
-                            <div class="flex min-w-[190px] flex-col justify-around gap-2">
-                                <p class="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{{ firstRoundLabel }}</p>
-                                <div
-                                    v-for="match in matchCount"
-                                    :key="match"
-                                    class="overflow-hidden rounded-lg border bg-card shadow-sm"
-                                    :class="[
-                                        drag?.kind === 'match' && drag.index === match - 1 ? 'opacity-40' : '',
-                                        dropMatch?.index === match - 1 ? 'ring-2 ring-inset ring-volt' : '',
-                                    ]"
-                                    @dragover="onMatchDragOver($event, match - 1)"
-                                    @dragleave="dropMatch = null"
-                                    @drop="onMatchDrop($event, match - 1)"
-                                >
-                                    <div class="flex items-center gap-1.5 border-b bg-muted px-2 py-1">
-                                        <span
-                                            draggable="true"
-                                            class="cursor-grab text-sm leading-none text-muted-foreground"
-                                            aria-label="Drag matchup to reorder"
-                                            @dragstart="onMatchDragStart($event, match - 1)"
-                                            @dragend="onDragEnd"
-                                        >⠿</span>
-                                        <span class="font-display text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Match {{ match }}</span>
-                                    </div>
-                                    <div
-                                        v-for="(slotIndex, side) in matchSlots(match)"
-                                        :key="slotIndex"
-                                        class="flex min-h-[40px] items-center gap-2 px-2.5 py-2 text-sm"
+                    <div class="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+                        <!-- Qualifier palette -->
+                        <div class="flex flex-col gap-2.5 self-start rounded-md border bg-muted/40 p-3 lg:sticky lg:top-4">
+                            <div v-for="group in paletteGroups" :key="group.label" class="flex flex-col gap-1.5">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{{ group.label }}</p>
+                                <div class="flex flex-wrap gap-1.5">
+                                    <button
+                                        v-for="chip in group.chips"
+                                        :key="chip.token"
+                                        type="button"
+                                        :draggable="!chip.placed"
+                                        :disabled="chip.placed"
+                                        class="inline-flex select-none items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-xs font-medium disabled:opacity-40"
                                         :class="[
-                                            side === 1 ? 'border-t border-dashed' : '',
-                                            overSlot === slotIndex ? 'bg-volt/15 ring-1 ring-inset ring-volt' : '',
+                                            chip.placed ? '' : 'cursor-grab',
+                                            isSelected(chip.token, null) ? 'ring-2 ring-volt' : '',
                                         ]"
-                                        @dragover="onSlotDragOver($event, slotIndex)"
-                                        @dragleave="overSlot = null"
-                                        @drop="onSlotDrop(slotIndex)"
+                                        @click="onChipTap(chip.token)"
+                                        @dragstart="onChipDragStart($event, chip.token, null)"
+                                        @dragend="onDragEnd"
                                     >
-                                        <template v-if="slots[slotIndex]">
-                                            <span class="h-2 w-2 shrink-0 rounded-full" :class="dotClass(kindForToken(slots[slotIndex]!))" />
-                                            <span
-                                                draggable="true"
-                                                class="flex-1 cursor-grab truncate font-medium"
-                                                @dragstart="onChipDragStart($event, slots[slotIndex]!, slotIndex)"
-                                                @dragend="onDragEnd"
-                                            >{{ slotLabel(slots[slotIndex]!) }}</span>
-                                            <button
-                                                type="button"
-                                                class="shrink-0 rounded px-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                                                aria-label="Remove qualifier"
-                                                @click="unassignSlot(slotIndex)"
-                                            >×</button>
-                                        </template>
-                                        <span v-else class="italic text-muted-foreground">Drop a qualifier</span>
-                                    </div>
+                                        <span class="h-2 w-2 rounded-full" :class="dotClass(chip.kind)" />
+                                        {{ chip.label }}
+                                    </button>
                                 </div>
                             </div>
+                        </div>
 
-                            <div v-for="round in derivedRounds" :key="round.label" class="flex min-w-[170px] flex-col justify-around gap-2">
-                                <p class="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{{ round.label }}</p>
-                                <div v-for="game in round.games" :key="game.tag" class="rounded-lg border border-dashed bg-card/60 px-3 py-2 text-center">
-                                    <p class="font-display text-[11px] font-semibold text-muted-foreground">{{ game.tag }}</p>
-                                    <p class="mt-0.5 text-xs text-muted-foreground">winner {{ game.feedA }} vs winner {{ game.feedB }}</p>
+                        <!-- Visual bracket -->
+                        <div class="min-w-0 overflow-x-auto pb-1">
+                            <div class="flex min-w-max items-stretch gap-5">
+                                <div class="flex min-w-[190px] flex-col justify-around gap-2">
+                                    <p class="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{{ firstRoundLabel }}</p>
+                                    <div
+                                        v-for="match in matchCount"
+                                        :key="match"
+                                        class="overflow-hidden rounded-lg border bg-card shadow-sm"
+                                        :class="[
+                                            drag?.kind === 'match' && drag.index === match - 1 ? 'opacity-40' : '',
+                                            dropMatch?.index === match - 1 || selectedMatch === match - 1 ? 'ring-2 ring-inset ring-volt' : '',
+                                        ]"
+                                        @dragover="onMatchDragOver($event, match - 1)"
+                                        @dragleave="dropMatch = null"
+                                        @drop="onMatchDrop($event, match - 1)"
+                                    >
+                                        <div class="flex items-center gap-1.5 border-b bg-muted px-2 py-1">
+                                            <button
+                                                type="button"
+                                                draggable="true"
+                                                class="cursor-grab text-sm leading-none text-muted-foreground hover:text-foreground"
+                                                :class="selectedMatch === match - 1 ? 'text-volt' : ''"
+                                                aria-label="Reorder matchup"
+                                                @click="onMatchHandleTap(match - 1)"
+                                                @dragstart="onMatchDragStart($event, match - 1)"
+                                                @dragend="onDragEnd"
+                                            >⠿</button>
+                                            <span class="font-display text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Match {{ match }}</span>
+                                        </div>
+                                        <div
+                                            v-for="(slotIndex, side) in matchSlots(match)"
+                                            :key="slotIndex"
+                                            class="flex min-h-[40px] cursor-pointer items-center gap-2 px-2.5 py-2 text-sm"
+                                            :class="[
+                                                side === 1 ? 'border-t border-dashed' : '',
+                                                overSlot === slotIndex || selected?.from === slotIndex ? 'bg-volt/15 ring-1 ring-inset ring-volt' : '',
+                                            ]"
+                                            @click="onSlotTap(slotIndex)"
+                                            @dragover="onSlotDragOver($event, slotIndex)"
+                                            @dragleave="overSlot = null"
+                                            @drop="onSlotDrop(slotIndex)"
+                                        >
+                                            <template v-if="slots[slotIndex]">
+                                                <span class="h-2 w-2 shrink-0 rounded-full" :class="dotClass(kindForToken(slots[slotIndex]!))" />
+                                                <span
+                                                    draggable="true"
+                                                    class="flex-1 cursor-grab truncate font-medium"
+                                                    @dragstart="onChipDragStart($event, slots[slotIndex]!, slotIndex)"
+                                                    @dragend="onDragEnd"
+                                                >{{ slotLabel(slots[slotIndex]!) }}</span>
+                                                <button
+                                                    type="button"
+                                                    class="shrink-0 rounded px-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                                    aria-label="Remove qualifier"
+                                                    @click.stop="unassignSlot(slotIndex)"
+                                                >×</button>
+                                            </template>
+                                            <span v-else class="italic text-muted-foreground">{{ selected ? 'Tap to place' : 'Drop a qualifier' }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div v-for="round in derivedRounds" :key="round.label" class="flex min-w-[170px] flex-col justify-around gap-2">
+                                    <p class="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{{ round.label }}</p>
+                                    <div v-for="game in round.games" :key="game.tag" class="rounded-lg border border-dashed bg-card/60 px-3 py-2 text-center">
+                                        <p class="font-display text-[11px] font-semibold text-muted-foreground">{{ game.tag }}</p>
+                                        <p class="mt-0.5 text-xs text-muted-foreground">winner {{ game.feedA }} vs winner {{ game.feedB }}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -692,7 +759,7 @@ function submit() {
                 </div>
             </div>
 
-            <div class="flex items-center gap-3">
+            <div class="flex max-w-2xl items-center gap-3">
                 <Button type="submit" :disabled="form.processing">Save changes</Button>
                 <Button type="button" variant="ghost" as-child>
                     <Link :href="stageShow([league.slug, season.id, stage.id]).url">Cancel</Link>
