@@ -88,8 +88,9 @@ class StagesController extends Controller
      *     source_complete: bool,
      *     seeded: bool,
      *     can_apply: bool,
+     *     has_rematch: bool,
      *     error: string|null,
-     *     slots: array<int, array{label: string, team: array{id: int, name: string, acronym: string}|null, error: string|null}>,
+     *     slots: array<int, array{label: string, team: array{id: int, name: string, acronym: string}|null, error: string|null, origin_group: string|null, rematch: bool}>,
      * }
      */
     private function buildSeeding(Stage $stage): ?array
@@ -116,6 +117,7 @@ class StagesController extends Controller
                 'source_complete' => false,
                 'seeded' => false,
                 'can_apply' => false,
+                'has_rematch' => false,
                 'error' => $e->getMessage(),
                 'slots' => [],
             ];
@@ -128,6 +130,7 @@ class StagesController extends Controller
             ...$preview,
             'seeded' => $roundOne->contains(fn (Game $game) => $game->home_team_id !== null || $game->away_team_id !== null),
             'can_apply' => $allResolved && $allScheduled,
+            'has_rematch' => collect($preview['slots'])->contains(fn (array $slot) => $slot['rematch']),
             'error' => $allScheduled ? null : 'A round-1 game has already started; the bracket can no longer be re-seeded.',
         ];
     }

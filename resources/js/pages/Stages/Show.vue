@@ -116,6 +116,8 @@ interface SeedingSlot {
     label: string;
     team: { id: number; name: string; acronym: string } | null;
     error: string | null;
+    origin_group: string | null;
+    rematch: boolean;
 }
 
 interface Seeding {
@@ -123,6 +125,7 @@ interface Seeding {
     source_complete: boolean;
     seeded: boolean;
     can_apply: boolean;
+    has_rematch: boolean;
     error: string | null;
     slots: SeedingSlot[];
 }
@@ -242,6 +245,15 @@ const seedingMatches = computed<{ home: SeedingSlot; away: SeedingSlot }[]>(() =
 
     return matches;
 });
+
+/**
+ * Descriptor hint under a seeded team: the slot label plus, for a pooled
+ * best-placed team, the group it actually came from (which the label no
+ * longer names once allocation has moved thirds around to avoid rematches).
+ */
+function slotHint(slot: SeedingSlot): string {
+    return slot.origin_group ? `${slot.label} · ${slot.origin_group}` : slot.label;
+}
 
 const seedForm = useForm({});
 
@@ -365,6 +377,10 @@ function deleteGroup(group: Group) {
                     Not every game in {{ seeding.source.name }} has finished — these qualifiers can still change. You can seed now and re-apply later, as long as no knockout game has kicked off.
                 </div>
 
+                <div v-if="seeding.has_rematch" class="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700/40 dark:bg-amber-950/40 dark:text-amber-200">
+                    A best-placed team could not avoid a side from its own group (marked below). This combination has no rematch-free layout — seed anyway or adjust the entrant slots.
+                </div>
+
                 <p v-if="seeding.error" class="text-sm text-destructive">{{ seeding.error }}</p>
                 <p v-if="seedForm.errors.seeding" class="text-sm text-destructive">{{ seedForm.errors.seeding }}</p>
 
@@ -378,11 +394,13 @@ function deleteGroup(group: Group) {
                         <span class="flex min-w-0 flex-1 flex-col">
                             <span :class="match.home.team ? '' : 'text-destructive'">
                                 {{ match.home.team?.name ?? match.home.error ?? '—' }}
-                                <span class="text-xs text-muted-foreground">({{ match.home.label }})</span>
+                                <span class="text-xs text-muted-foreground">({{ slotHint(match.home) }})</span>
+                                <span v-if="match.home.rematch" class="text-xs font-semibold text-amber-600 dark:text-amber-400">⚠ rematch</span>
                             </span>
                             <span :class="match.away.team ? '' : 'text-destructive'">
                                 {{ match.away.team?.name ?? match.away.error ?? '—' }}
-                                <span class="text-xs text-muted-foreground">({{ match.away.label }})</span>
+                                <span class="text-xs text-muted-foreground">({{ slotHint(match.away) }})</span>
+                                <span v-if="match.away.rematch" class="text-xs font-semibold text-amber-600 dark:text-amber-400">⚠ rematch</span>
                             </span>
                         </span>
                     </div>
