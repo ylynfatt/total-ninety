@@ -128,15 +128,44 @@ const qualifierTotal = computed(() => {
 
 const qualifierTotalIsPowerOfTwo = computed(() => qualifierTotal.value >= 2 && (qualifierTotal.value & (qualifierTotal.value - 1)) === 0);
 
-const entrantTokens = ref<string[]>(((props.stage.config?.entrants as Entrant[] | undefined) ?? []).map(tokenOf));
+/**
+ * The bracket is a fixed set of slots (one per qualifier) that start empty
+ * and get a qualifier dropped into each. slots[2i] / slots[2i+1] are the two
+ * sides of round-1 match i, and the order of the matches is the bracket tree.
+ * We only mirror them into the saved entrants once every slot is filled — a
+ * half-built bracket isn't a valid one.
+ */
+const bracketSize = computed(() => (qualifierTotalIsPowerOfTwo.value ? qualifierTotal.value : 0));
+
+function initialSlots(): (string | null)[] {
+    const saved = ((props.stage.config?.entrants as Entrant[] | undefined) ?? []).map(tokenOf);
+
+    if (bracketSize.value === 0) {
+        return saved;
+    }
+
+    return Array.from({ length: bracketSize.value }, (_, index) => saved[index] ?? null);
+}
+
+const slots = ref<(string | null)[]>(initialSlots());
 
 watch(
-    entrantTokens,
-    (tokens) => {
-        form.config.entrants = tokens.length > 0 ? tokens.map(entrantOf) : null;
+    slots,
+    (value) => {
+        const filled = value.length > 0 && value.every((token): token is string => token !== null);
+        form.config.entrants = filled ? (value as string[]).map(entrantOf) : null;
     },
     { deep: true },
 );
+
+const matchCount = computed(() => slots.value.length / 2);
+const placedCount = computed(() => slots.value.filter((token) => token !== null).length);
+const firstRoundLabel = computed(() => roundLabelFor(matchCount.value));
+
+/** The two slot indices of a 1-based match number. */
+function matchSlots(match: number): [number, number] {
+    return [2 * (match - 1), 2 * (match - 1) + 1];
+}
 
 /**
  * Classic template for even group counts with exactly 2 qualifiers and no
@@ -159,7 +188,7 @@ function applyClassicTemplate(): void {
         secondHalf.push(`group|${groups[i + 1]}|1`, `group|${groups[i]}|2`);
     }
 
-    entrantTokens.value = [...firstHalf, ...secondHalf];
+    slots.value = [...firstHalf, ...secondHalf];
 }
 
 /**
@@ -196,40 +225,18 @@ function applySeededTemplate(): void {
         seeds = next;
     }
 
-    entrantTokens.value = seeds.map((seed) => seedList[seed - 1]);
+    slots.value = seeds.map((seed) => seedList[seed - 1]);
 }
 
 function clearEntrants(): void {
-    entrantTokens.value = [];
+    slots.value = Array.from({ length: bracketSize.value }, () => null);
 }
 
 /**
- * Move a round-1 match (a pair of slots) up or down the order. Because the
- * entrant list *is* the bracket tree — consecutive matches feed each later-
- * round game — reordering matches is how the admin controls who can meet
- * whom in the Round of 16 and beyond.
+ * Full slot label, e.g. "Winner Group A" → "Winner A", "Best-placed #3" →
+ * "3rd #3". The group's "Group " prefix is dropped so chips stay compact.
  */
-function moveMatch(matchIndex: number, direction: -1 | 1): void {
-    const target = matchIndex + direction;
-
-    if (target < 0 || target >= entrantTokens.value.length / 2) {
-        return;
-    }
-
-    const tokens = [...entrantTokens.value];
-    const a = 2 * matchIndex;
-    const b = 2 * target;
-
-    [tokens[a], tokens[b]] = [tokens[b], tokens[a]];
-    [tokens[a + 1], tokens[b + 1]] = [tokens[b + 1], tokens[a + 1]];
-
-    entrantTokens.value = tokens;
-}
-
-/**
- * Compact slot label for the projection panel: "W A" / "RU B" / "3rd #1".
- */
-function shortLabel(token: string): string {
+function slotLabel(token: string): string {
     const parts = token.split('|');
 
     if (parts[0] === 'best') {
@@ -238,9 +245,174 @@ function shortLabel(token: string): string {
 
     const group = parts[1].replace(/^Group\s+/i, '');
     const position = Number(parts[2]);
-    const prefix = position === 1 ? 'W' : position === 2 ? 'RU' : `${position}th`;
 
-    return `${prefix} ${group}`;
+    if (position === 1) {
+        return `Winner ${group}`;
+    }
+
+    if (position === 2) {
+        return `Runner-up ${group}`;
+    }
+
+    const suffix = position % 10 === 3 && position % 100 !== 13 ? 'rd' : 'th';
+
+    return `${position}${suffix} ${group}`;
+}
+
+type SlotKind = 'winner' | 'ru' | 'third' | 'other';
+
+function kindForToken(token: string): SlotKind {
+    const parts = token.split('|');
+
+    if (parts[0] === 'best') {
+        return 'third';
+    }
+
+    const position = Number(parts[2]);
+
+    return position === 1 ? 'winner' : position === 2 ? 'ru' : 'other';
+}
+
+function dotClass(kind: SlotKind): string {
+    return { winner: 'bg-primary', ru: 'bg-sky-500', third: 'bg-amber-500', other: 'bg-muted-foreground' }[kind];
+}
+
+/** Qualifier chips grouped by kind, marking the ones already on the bracket. */
+const paletteGroups = computed<{ label: string; chips: { token: string; label: string; kind: SlotKind; placed: boolean }[] }[]>(() => {
+    const placed = new Set(slots.value.filter((token): token is string => token !== null));
+    const labels: Record<SlotKind, string> = {
+        winner: 'Group winners',
+        ru: 'Runners-up',
+        third: 'Best-placed',
+        other: 'Other qualifiers',
+    };
+    const grouped: Record<SlotKind, { token: string; label: string; kind: SlotKind; placed: boolean }[]> = { winner: [], ru: [], third: [], other: [] };
+
+    for (const option of slotOptions.value) {
+        const kind = kindForToken(option.value);
+        grouped[kind].push({ token: option.value, label: slotLabel(option.value), kind, placed: placed.has(option.value) });
+    }
+
+    return (['winner', 'ru', 'third', 'other'] as SlotKind[])
+        .filter((kind) => grouped[kind].length > 0)
+        .map((kind) => ({ label: labels[kind], chips: grouped[kind] }));
+});
+
+// ----- drag and drop (native, no dependency) -----
+
+type DragState = { kind: 'chip'; token: string; from: number | null } | { kind: 'match'; index: number };
+
+const drag = ref<DragState | null>(null);
+const overSlot = ref<number | null>(null);
+const dropMatch = ref<{ index: number; after: boolean } | null>(null);
+
+function assignSlot(token: string, index: number, from: number | null): void {
+    const next = [...slots.value];
+    const occupant = next[index];
+    next[index] = token;
+
+    // Dragged out of another slot: leave the source empty, or swap when the
+    // target was occupied.
+    if (from !== null) {
+        next[from] = occupant && occupant !== token ? occupant : null;
+    }
+
+    slots.value = next;
+}
+
+function unassignSlot(index: number): void {
+    const next = [...slots.value];
+    next[index] = null;
+    slots.value = next;
+}
+
+/** Move round-1 match `from` to position `to`, sliding the rest along. */
+function moveMatch(from: number, to: number): void {
+    if (from === to) {
+        return;
+    }
+
+    const pairs: [string | null, string | null][] = [];
+    for (let i = 0; i < slots.value.length; i += 2) {
+        pairs.push([slots.value[i], slots.value[i + 1]]);
+    }
+
+    const [pair] = pairs.splice(from, 1);
+    pairs.splice(to, 0, pair);
+    slots.value = pairs.flat();
+}
+
+function onChipDragStart(event: DragEvent, token: string, from: number | null): void {
+    drag.value = { kind: 'chip', token, from };
+    // Firefox only starts a drag once data is set; the value itself is unused.
+    event.dataTransfer?.setData('text/plain', token);
+
+    if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+    }
+}
+
+function onMatchDragStart(event: DragEvent, index: number): void {
+    drag.value = { kind: 'match', index };
+    event.dataTransfer?.setData('text/plain', `match:${index}`);
+
+    if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+    }
+}
+
+function onDragEnd(): void {
+    drag.value = null;
+    overSlot.value = null;
+    dropMatch.value = null;
+}
+
+function onSlotDragOver(event: DragEvent, index: number): void {
+    if (drag.value?.kind !== 'chip') {
+        return;
+    }
+
+    event.preventDefault();
+    overSlot.value = index;
+}
+
+function onSlotDrop(index: number): void {
+    if (drag.value?.kind !== 'chip') {
+        return;
+    }
+
+    assignSlot(drag.value.token, index, drag.value.from);
+    onDragEnd();
+}
+
+function dropTargetAfter(event: DragEvent): boolean {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+
+    return event.clientY > rect.top + rect.height / 2;
+}
+
+function onMatchDragOver(event: DragEvent, index: number): void {
+    if (drag.value?.kind !== 'match') {
+        return;
+    }
+
+    event.preventDefault();
+    dropMatch.value = { index, after: dropTargetAfter(event) };
+}
+
+function onMatchDrop(event: DragEvent, index: number): void {
+    if (drag.value?.kind !== 'match') {
+        return;
+    }
+
+    let to = index + (dropTargetAfter(event) ? 1 : 0);
+
+    if (drag.value.index < to) {
+        to -= 1;
+    }
+
+    moveMatch(drag.value.index, to);
+    onDragEnd();
 }
 
 function roundLabelFor(gameCount: number): string {
@@ -256,44 +428,29 @@ function roundTag(gameCount: number, index: number): string {
     return gameCount === 1 ? prefix : `${prefix}${index + 1}`;
 }
 
-interface BracketNode {
-    tag: string;
-    teams?: [string, string];
-    children?: [BracketNode, BracketNode];
-}
-
 /**
- * The projected bracket above the round-1 matches: for every later round, the
- * games it produces and which matches feed them. The Round of 16 inlines its
- * feeding matchups' teams (the round the admin most wants to verify); deeper
- * rounds reference the tags (M1, R16-1 …) shown alongside. Null until every
- * slot is filled and the count is a bracket-sized power of two.
+ * The bracket columns after round 1: each later round's games and which
+ * earlier games feed them (by tag — M1, QF1 …). Independent of who's placed,
+ * so the tree is visible while the admin is still filling slots.
  */
-const bracketTree = computed<{ label: string; games: BracketNode[] }[] | null>(() => {
-    const tokens = entrantTokens.value;
-    const n = tokens.length;
-
-    if (n < 4 || (n & (n - 1)) !== 0 || tokens.some((token) => !token)) {
-        return null;
+const derivedRounds = computed<{ label: string; games: { tag: string; feedA: string; feedB: string }[] }[]>(() => {
+    if (matchCount.value < 2 || (matchCount.value & (matchCount.value - 1)) !== 0) {
+        return [];
     }
 
-    let level: BracketNode[] = [];
-    for (let i = 0; i < n / 2; i++) {
-        level.push({ tag: `M${i + 1}`, teams: [shortLabel(tokens[2 * i]), shortLabel(tokens[2 * i + 1])] });
-    }
+    let previousTags = Array.from({ length: matchCount.value }, (_, index) => `M${index + 1}`);
+    const rounds: { label: string; games: { tag: string; feedA: string; feedB: string }[] }[] = [];
 
-    const rounds: { label: string; games: BracketNode[] }[] = [];
-
-    while (level.length > 1) {
-        const gameCount = level.length / 2;
-        const next: BracketNode[] = [];
+    while (previousTags.length > 1) {
+        const gameCount = previousTags.length / 2;
+        const games = [];
 
         for (let j = 0; j < gameCount; j++) {
-            next.push({ tag: roundTag(gameCount, j), children: [level[2 * j], level[2 * j + 1]] });
+            games.push({ tag: roundTag(gameCount, j), feedA: previousTags[2 * j], feedB: previousTags[2 * j + 1] });
         }
 
-        rounds.push({ label: roundLabelFor(gameCount), games: next });
-        level = next;
+        rounds.push({ label: roundLabelFor(gameCount), games });
+        previousTags = games.map((game) => game.tag);
     }
 
     return rounds;
@@ -400,77 +557,116 @@ function submit() {
                         Adjust "Advance per group" or "Best-placed qualifiers" on the group stage.
                     </div>
 
-                    <div class="flex flex-wrap gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
                         <Button v-if="classicTemplateAvailable" type="button" size="sm" variant="outline" @click="applyClassicTemplate">
-                            Classic template (1A v 2B …)
+                            Classic template
                         </Button>
                         <Button type="button" size="sm" variant="outline" :disabled="!qualifierTotalIsPowerOfTwo" @click="applySeededTemplate">
                             Seeded template
                         </Button>
-                        <Button v-if="entrantTokens.length > 0" type="button" size="sm" variant="ghost" class="text-destructive" @click="clearEntrants">
+                        <Button v-if="placedCount > 0" type="button" size="sm" variant="ghost" class="text-destructive" @click="clearEntrants">
                             Clear
                         </Button>
+                        <span class="ml-auto text-xs tabular-nums text-muted-foreground">{{ placedCount }} of {{ bracketSize }} placed</span>
                     </div>
 
-                    <div v-if="entrantTokens.length > 0" class="grid gap-2">
-                        <p class="text-xs text-muted-foreground">
-                            Round-1 matches, in bracket order. Reorder them so the right winners are set up to meet later — the projected paths below update as you go.
-                        </p>
-                        <div
-                            v-for="match in entrantTokens.length / 2"
-                            :key="match"
-                            class="flex flex-wrap items-center gap-2 rounded-md border bg-card px-3 py-2"
-                        >
-                            <span class="flex shrink-0 flex-col leading-none">
-                                <button
-                                    type="button"
-                                    class="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                                    :disabled="match === 1"
-                                    aria-label="Move match up"
-                                    @click="moveMatch(match - 1, -1)"
-                                >▲</button>
-                                <button
-                                    type="button"
-                                    class="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                                    :disabled="match === entrantTokens.length / 2"
-                                    aria-label="Move match down"
-                                    @click="moveMatch(match - 1, 1)"
-                                >▼</button>
-                            </span>
-                            <span class="w-16 shrink-0 font-display text-xs font-semibold uppercase text-muted-foreground">Match {{ match }}</span>
-                            <Select v-model="entrantTokens[2 * (match - 1)]">
-                                <SelectTrigger class="h-8 w-56 text-xs"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem v-for="option in slotOptions" :key="option.value" :value="option.value">{{ option.label }}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <span class="text-xs text-muted-foreground">vs</span>
-                            <Select v-model="entrantTokens[2 * (match - 1) + 1]">
-                                <SelectTrigger class="h-8 w-56 text-xs"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem v-for="option in slotOptions" :key="option.value" :value="option.value">{{ option.label }}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
+                    <p class="text-xs text-muted-foreground">
+                        Drag a qualifier onto a slot. Drag a matchup by its <span class="font-semibold">⠿</span> handle to move it — the later rounds show who's set up to meet.
+                    </p>
 
-                    <div v-if="bracketTree" class="grid gap-3 rounded-md border border-dashed p-3">
-                        <p class="text-xs font-semibold text-muted-foreground">Projected bracket paths</p>
-                        <div v-for="round in bracketTree" :key="round.label" class="grid gap-1.5">
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{{ round.label }}</p>
-                            <div v-for="game in round.games" :key="game.tag" class="rounded border bg-card px-2.5 py-1.5 text-xs">
-                                <span class="mr-1.5 font-display font-semibold text-muted-foreground">{{ game.tag }}</span>
-                                <template v-if="game.children && game.children[0].teams">
-                                    <span>{{ game.children[0].tag }} ({{ game.children[0].teams[0] }} v {{ game.children[0].teams[1] }})</span>
-                                    <span class="text-muted-foreground"> vs </span>
-                                    <span>{{ game.children[1].tag }} ({{ game.children[1].teams![0] }} v {{ game.children[1].teams![1] }})</span>
-                                </template>
-                                <template v-else-if="game.children">
-                                    <span class="text-muted-foreground">winner {{ game.children[0].tag }} vs winner {{ game.children[1].tag }}</span>
-                                </template>
+                    <!-- Qualifier palette -->
+                    <div class="flex flex-col gap-2.5 rounded-md border bg-muted/40 p-3">
+                        <div v-for="group in paletteGroups" :key="group.label" class="flex flex-col gap-1.5">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{{ group.label }}</p>
+                            <div class="flex flex-wrap gap-1.5">
+                                <span
+                                    v-for="chip in group.chips"
+                                    :key="chip.token"
+                                    :draggable="!chip.placed"
+                                    class="inline-flex select-none items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-xs font-medium"
+                                    :class="chip.placed ? 'opacity-40' : 'cursor-grab'"
+                                    @dragstart="onChipDragStart($event, chip.token, null)"
+                                    @dragend="onDragEnd"
+                                >
+                                    <span class="h-2 w-2 rounded-full" :class="dotClass(chip.kind)" />
+                                    {{ chip.label }}
+                                </span>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Visual bracket -->
+                    <div class="overflow-x-auto pb-1">
+                        <div class="flex min-w-max items-stretch gap-5">
+                            <div class="flex min-w-[190px] flex-col justify-around gap-2">
+                                <p class="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{{ firstRoundLabel }}</p>
+                                <div
+                                    v-for="match in matchCount"
+                                    :key="match"
+                                    class="overflow-hidden rounded-lg border bg-card shadow-sm"
+                                    :class="[
+                                        drag?.kind === 'match' && drag.index === match - 1 ? 'opacity-40' : '',
+                                        dropMatch?.index === match - 1 ? 'ring-2 ring-inset ring-volt' : '',
+                                    ]"
+                                    @dragover="onMatchDragOver($event, match - 1)"
+                                    @dragleave="dropMatch = null"
+                                    @drop="onMatchDrop($event, match - 1)"
+                                >
+                                    <div class="flex items-center gap-1.5 border-b bg-muted px-2 py-1">
+                                        <span
+                                            draggable="true"
+                                            class="cursor-grab text-sm leading-none text-muted-foreground"
+                                            aria-label="Drag matchup to reorder"
+                                            @dragstart="onMatchDragStart($event, match - 1)"
+                                            @dragend="onDragEnd"
+                                        >⠿</span>
+                                        <span class="font-display text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Match {{ match }}</span>
+                                    </div>
+                                    <div
+                                        v-for="(slotIndex, side) in matchSlots(match)"
+                                        :key="slotIndex"
+                                        class="flex min-h-[40px] items-center gap-2 px-2.5 py-2 text-sm"
+                                        :class="[
+                                            side === 1 ? 'border-t border-dashed' : '',
+                                            overSlot === slotIndex ? 'bg-volt/15 ring-1 ring-inset ring-volt' : '',
+                                        ]"
+                                        @dragover="onSlotDragOver($event, slotIndex)"
+                                        @dragleave="overSlot = null"
+                                        @drop="onSlotDrop(slotIndex)"
+                                    >
+                                        <template v-if="slots[slotIndex]">
+                                            <span class="h-2 w-2 shrink-0 rounded-full" :class="dotClass(kindForToken(slots[slotIndex]!))" />
+                                            <span
+                                                draggable="true"
+                                                class="flex-1 cursor-grab truncate font-medium"
+                                                @dragstart="onChipDragStart($event, slots[slotIndex]!, slotIndex)"
+                                                @dragend="onDragEnd"
+                                            >{{ slotLabel(slots[slotIndex]!) }}</span>
+                                            <button
+                                                type="button"
+                                                class="shrink-0 rounded px-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                                aria-label="Remove qualifier"
+                                                @click="unassignSlot(slotIndex)"
+                                            >×</button>
+                                        </template>
+                                        <span v-else class="italic text-muted-foreground">Drop a qualifier</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-for="round in derivedRounds" :key="round.label" class="flex min-w-[170px] flex-col justify-around gap-2">
+                                <p class="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{{ round.label }}</p>
+                                <div v-for="game in round.games" :key="game.tag" class="rounded-lg border border-dashed bg-card/60 px-3 py-2 text-center">
+                                    <p class="font-display text-[11px] font-semibold text-muted-foreground">{{ game.tag }}</p>
+                                    <p class="mt-0.5 text-xs text-muted-foreground">winner {{ game.feedA }} vs winner {{ game.feedB }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p v-if="placedCount < bracketSize" class="text-xs text-muted-foreground">
+                        {{ bracketSize - placedCount }} slot{{ bracketSize - placedCount === 1 ? '' : 's' }} still empty — fill every slot to save the bracket.
+                    </p>
 
                     <InputError :message="form.errors['config.entrants']" />
                 </template>
