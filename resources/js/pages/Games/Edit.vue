@@ -55,6 +55,8 @@ const props = defineProps<{
     season: Summary;
     stage: Summary & { format: string };
     game: Game;
+    timezone: string;
+    scheduleWindowMinutes: number;
 }>();
 
 const scheduleForm = useForm({
@@ -86,16 +88,18 @@ const matchTitle = computed(() => {
     return `${home} vs ${away}`;
 });
 
-// match_date is a Carbon-serialized datetime — slice to YYYY-MM-DD for the date input.
-function isoDate(value: string | null | undefined): string {
+function localKickoff(value: string | null): string {
     if (!value) {
         return '';
     }
 
-    return value.length >= 10 ? value.slice(0, 10) : value;
+    return new Intl.DateTimeFormat('sv-SE', {
+        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+        hourCycle: 'h23', timeZone: props.timezone,
+    }).format(new Date(value)).replace(' ', 'T');
 }
 
-scheduleForm.match_date = isoDate(props.game.match_date);
+scheduleForm.match_date = localKickoff(props.game.match_date);
 
 function submitSchedule() {
     scheduleForm.patch(updateSchedule([props.league.slug, props.season.id, props.stage.id, props.game.id]).url, {
@@ -147,9 +151,10 @@ function clearResult() {
             <CardContent>
                 <form class="flex flex-col gap-4" @submit.prevent="submitSchedule">
                     <div class="grid gap-2">
-                        <Label for="match_date">Match date</Label>
-                        <Input id="match_date" type="date" v-model="scheduleForm.match_date" />
+                        <Label for="match_date">Kickoff ({{ timezone }})</Label>
+                        <Input id="match_date" type="datetime-local" v-model="scheduleForm.match_date" />
                         <InputError :message="scheduleForm.errors.match_date" />
+                        <p class="text-xs text-muted-foreground">Each fixture reserves {{ scheduleWindowMinutes }} minutes for its teams and venue. Adjacent fixture windows may touch.</p>
                     </div>
                     <div class="grid gap-2">
                         <Label for="location">Location</Label>
