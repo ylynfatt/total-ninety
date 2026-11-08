@@ -27,9 +27,7 @@ class GameEventRecorded implements ShouldBroadcastNow
      */
     public function broadcastOn(): array
     {
-        return [
-            new Channel("game.{$this->event->game_id}"),
-        ];
+        return $this->event->game->broadcastChannels(false);
     }
 
     public function broadcastAs(): string

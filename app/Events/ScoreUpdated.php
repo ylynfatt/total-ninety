@@ -30,10 +30,7 @@ class ScoreUpdated implements ShouldBroadcastNow
      */
     public function broadcastOn(): array
     {
-        return [
-            new Channel("game.{$this->game->id}"),
-            new Channel('scoreboard.live'),
-        ];
+        return $this->game->broadcastChannels();
     }
 
     public function broadcastAs(): string
