@@ -310,13 +310,7 @@ class StagesController extends Controller
      */
     private function winnerSide(Game $game): ?string
     {
-        $result = $game->result;
-
-        if ($result === null || $result->home_team_score === $result->away_team_score) {
-            return null;
-        }
-
-        return $result->home_team_score > $result->away_team_score ? 'home' : 'away';
+        return $game->status === GameStatus::FullTime ? $game->result?->winnerSide() : null;
     }
 
     private function roundLabel(int $gameCount): string

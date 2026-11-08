@@ -17,6 +17,7 @@ class Result extends Model
         'game_id',
         'home_team_score',
         'away_team_score',
+        'winner_side',
     ];
 
     protected function casts(): array
@@ -25,6 +26,15 @@ class Result extends Model
             'home_team_score' => 'integer',
             'away_team_score' => 'integer',
         ];
+    }
+
+    public function winnerSide(): ?string
+    {
+        if ($this->home_team_score === $this->away_team_score) {
+            return $this->winner_side;
+        }
+
+        return $this->home_team_score > $this->away_team_score ? 'home' : 'away';
     }
 
     public function game(): BelongsTo

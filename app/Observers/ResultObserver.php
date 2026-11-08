@@ -13,6 +13,13 @@ class ResultObserver
 
     public function __construct(private readonly AdvanceBracketWinner $advancer) {}
 
+    public function saving(Result $result): void
+    {
+        if ($result->home_team_score !== $result->away_team_score) {
+            $result->winner_side = null;
+        }
+    }
+
     /**
      * Fire ScoreUpdated whenever a result is created or its scores change.
      *
@@ -31,11 +38,10 @@ class ResultObserver
         // than a stale relation cached on the game.
         $game->setRelation('result', $result);
 
-        $this->broadcastQuietly(fn () => ScoreUpdated::dispatch($game));
-
         // A corrected score on an already-final knockout game re-promotes the
         // (possibly new) winner. No-ops unless the game is final + decisive.
         $this->advancer->execute($game);
+        $this->broadcastQuietly(fn () => ScoreUpdated::dispatch($game));
     }
 
     /**
@@ -53,6 +59,7 @@ class ResultObserver
 
         $game->setRelation('result', null);
 
+        $this->advancer->execute($game);
         $this->broadcastQuietly(fn () => ScoreUpdated::dispatch($game));
     }
 }

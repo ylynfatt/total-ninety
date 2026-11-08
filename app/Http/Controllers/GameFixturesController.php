@@ -64,27 +64,29 @@ class GameFixturesController extends Controller
     {
         $this->ensureChain($league, $season, $stage, $game);
 
-        // Entering a final score on a game that never went through the live
-        // lifecycle is a declaration that the game was played. Marking it
-        // Full Time (before the result lands, so observers see a final game)
-        // keeps manual entry consistent with the gamecast path: bracket
-        // winners advance and stage-completeness checks see the game as done.
-        // In-progress games are left alone — the editor is a correction tool
-        // there, not a way to end the match.
-        if (in_array($game->status, [GameStatus::Scheduled, GameStatus::Postponed], true)) {
-            $game->update(['status' => GameStatus::FullTime]);
-        }
+        return $game->getConnection()->transaction(function () use ($request, $league, $season, $stage, $game): RedirectResponse {
+            // Entering a final score on a game that never went through the live
+            // lifecycle is a declaration that the game was played. Marking it
+            // Full Time (before the result lands, so observers see a final game)
+            // keeps manual entry consistent with the gamecast path: bracket
+            // winners advance and stage-completeness checks see the game as done.
+            // In-progress games are left alone — the editor is a correction tool
+            // there, not a way to end the match.
+            if (in_array($game->status, [GameStatus::Scheduled, GameStatus::Postponed], true)) {
+                $game->update(['status' => GameStatus::FullTime]);
+            }
 
-        // updateOrCreate handles both first-time entry and edits, since each
-        // game has a unique constraint on game_id in the results table.
-        Result::updateOrCreate(
-            ['game_id' => $game->id],
-            $request->validated(),
-        );
+            // updateOrCreate handles both first-time entry and edits, since each
+            // game has a unique constraint on game_id in the results table.
+            Result::updateOrCreate(
+                ['game_id' => $game->id],
+                [...$request->validated(), 'winner_side' => $request->input('winner_side')],
+            );
 
-        return redirect()
-            ->route('stages.show', [$league, $season, $stage])
-            ->with('status', 'Result recorded.');
+            return redirect()
+                ->route('stages.show', [$league, $season, $stage])
+                ->with('status', 'Result recorded.');
+        });
     }
 
     public function destroyResult(League $league, Season $season, Stage $stage, Game $game): RedirectResponse
@@ -92,7 +94,7 @@ class GameFixturesController extends Controller
         $this->ensureChain($league, $season, $stage, $game);
         $this->authorize('update', $game);
 
-        $game->result()->delete();
+        $game->getConnection()->transaction(fn () => $game->result?->delete());
 
         return redirect()
             ->route('stages.show', [$league, $season, $stage])

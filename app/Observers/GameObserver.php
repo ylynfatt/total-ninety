@@ -21,14 +21,14 @@ class GameObserver
      */
     public function updated(Game $game): void
     {
-        if ($game->wasChanged(['status', 'current_minute', 'clock_started_at'])) {
-            $this->broadcastQuietly(fn () => GameStatusChanged::dispatch($game));
-        }
-
         if ($game->wasChanged('status')) {
             // Reaching Full Time on a knockout game promotes its winner to the
             // next round. No-ops for non-bracket games and draws.
             $this->advancer->execute($game);
+        }
+
+        if ($game->wasChanged(['status', 'current_minute', 'clock_started_at'])) {
+            $this->broadcastQuietly(fn () => GameStatusChanged::dispatch($game));
         }
     }
 }

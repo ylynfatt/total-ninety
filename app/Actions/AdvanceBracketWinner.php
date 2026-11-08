@@ -4,18 +4,12 @@ namespace App\Actions;
 
 use App\Enums\GameStatus;
 use App\Models\Game;
+use Illuminate\Validation\ValidationException;
 
 /**
- * Promote the winner of a finalized knockout game into its next-round slot.
- *
- * A game decides its parent slot once it reaches Full Time with a decisive
- * result. The winner of round r position p advances to round r+1 position
- * p/2 — into the home slot when p is even, the away slot when p is odd
- * (the inverse of how the generator lays children out).
- *
- * Idempotent: re-running after a result correction simply overwrites the
- * next slot with the (possibly new) winner. No-ops for non-bracket games,
- * games that aren't final yet, draws, and the final itself.
+ * Keep an unplayed next-round slot synchronized with the finalized winner.
+ * Removing a result or reopening a match clears its previous advancement.
+ * Once the next match has recorded data, changing its participants is blocked.
  */
 class AdvanceBracketWinner
 {
@@ -25,15 +19,7 @@ class AdvanceBracketWinner
             return;
         }
 
-        if ($game->status !== GameStatus::FullTime) {
-            return;
-        }
-
-        $winnerId = $this->winnerTeamId($game);
-
-        if ($winnerId === null) {
-            return;
-        }
+        $winnerId = $game->status === GameStatus::FullTime ? $this->winnerTeamId($game) : null;
 
         $nextGame = Game::query()
             ->where('stage_id', $game->stage_id)
@@ -46,6 +32,14 @@ class AdvanceBracketWinner
         }
 
         $slot = $game->bracket_position % 2 === 0 ? 'home_team_id' : 'away_team_id';
+
+        if ($nextGame->{$slot} === $winnerId) {
+            return;
+        }
+
+        if ($nextGame->status !== GameStatus::Scheduled || $nextGame->result()->exists() || $nextGame->events()->exists()) {
+            throw ValidationException::withMessages(['result' => 'The next-round match has already started or has recorded data. Resolve it before changing the advancing team.']);
+        }
 
         $nextGame->update([$slot => $winnerId]);
     }
@@ -62,12 +56,10 @@ class AdvanceBracketWinner
             return null;
         }
 
-        if ($result->home_team_score === $result->away_team_score) {
-            return null;
-        }
-
-        return $result->home_team_score > $result->away_team_score
-            ? $game->home_team_id
-            : $game->away_team_id;
+        return match ($result->winnerSide()) {
+            'home' => $game->home_team_id,
+            'away' => $game->away_team_id,
+            default => null,
+        };
     }
 }
