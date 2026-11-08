@@ -109,3 +109,66 @@ it('ignores non-bracket games', function () {
 
     expect(Game::where('round', 2)->whereNotNull('home_team_id')->where('id', '!=', $game->id)->exists())->toBeFalse();
 });
+
+it('resolves a tied knockout score and advances the explicitly selected team', function (): void {
+    [$stage, $round1, $final] = fourTeamBracket();
+    $game = $round1[0];
+    $season = $stage->season;
+    $league = $season->league;
+
+    $this->actingAs($league->owner)->put(route('fixtures.result.store', [$league, $season, $stage, $game]), [
+        'home_team_score' => 2, 'away_team_score' => 2, 'winner_side' => 'away',
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    expect($game->fresh()->result->winnerSide())->toBe('away')
+        ->and($game->fresh()->result->home_team_score)->toBe(2)
+        ->and($final->fresh()->home_team_id)->toBe($game->away_team_id);
+
+    $this->get(route('stages.show', [$league, $season, $stage]))
+        ->assertInertia(fn ($page) => $page->where('bracket.0.games.0.winner', 'away'));
+});
+
+it('requires a winning side for final knockout draws and rejects a winner on decisive scores', function (): void {
+    [$stage, $round1] = fourTeamBracket();
+    $game = $round1[0];
+    $season = $stage->season;
+    $league = $season->league;
+    $url = route('fixtures.result.store', [$league, $season, $stage, $game]);
+
+    $this->actingAs($league->owner)->put($url, ['home_team_score' => 1, 'away_team_score' => 1])
+        ->assertSessionHasErrors('winner_side');
+    $this->put($url, ['home_team_score' => 2, 'away_team_score' => 1, 'winner_side' => 'away'])
+        ->assertSessionHasErrors('winner_side');
+    expect($game->fresh()->result)->toBeNull();
+});
+
+it('clears the advancing slot when a result is removed', function (): void {
+    [$stage, $round1, $final] = fourTeamBracket();
+    $game = $round1[0];
+    finalize($game, 2, 0);
+    $season = $stage->season;
+    $league = $season->league;
+
+    $this->actingAs($league->owner)->delete(route('fixtures.result.destroy', [$league, $season, $stage, $game]))
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    expect($final->fresh()->home_team_id)->toBeNull()
+        ->and($game->fresh()->result)->toBeNull();
+});
+
+it('preserves a result and bracket when a winner correction would change a match already underway', function (): void {
+    [$stage, $round1, $final] = fourTeamBracket();
+    $game = $round1[0];
+    finalize($game, 2, 0);
+    $final->update(['status' => GameStatus::Live]);
+    $season = $stage->season;
+    $league = $season->league;
+
+    $this->actingAs($league->owner)->put(route('fixtures.result.store', [$league, $season, $stage, $game]), [
+        'home_team_score' => 0, 'away_team_score' => 3,
+    ])->assertSessionHasErrors('result');
+    $this->delete(route('fixtures.result.destroy', [$league, $season, $stage, $game]))->assertSessionHasErrors('result');
+
+    expect($game->fresh()->result->home_team_score)->toBe(2)
+        ->and($final->fresh()->home_team_id)->toBe($game->home_team_id);
+});

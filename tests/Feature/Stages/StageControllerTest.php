@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\GenerateFixtures;
+use App\Enums\GameStatus;
 use App\Enums\StageFormat;
 use App\Models\Game;
 use App\Models\Group;
@@ -254,6 +255,8 @@ describe('StagesController show — bracket prop', function () {
 
         app(GenerateFixtures::class)->execute($stage);
         $final = Game::where('stage_id', $stage->id)->where('round', 1)->first();
+        $final->update(['status' => GameStatus::FullTime]);
+
         Result::factory()->create(['game_id' => $final->id, 'home_team_score' => 2, 'away_team_score' => 0]);
 
         $this->get("/leagues/{$league->slug}/seasons/{$season->id}/stages/{$stage->id}")

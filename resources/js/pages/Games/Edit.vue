@@ -35,6 +35,7 @@ interface ResultRow {
     id: number;
     home_team_score: number;
     away_team_score: number;
+    winner_side: 'home' | 'away' | null;
 }
 
 interface Game {
@@ -64,6 +65,8 @@ const scheduleForm = useForm({
 const resultForm = useForm({
     home_team_score: props.game.result?.home_team_score ?? 0,
     away_team_score: props.game.result?.away_team_score ?? 0,
+    winner_side: props.game.result?.winner_side ?? null,
+    result: undefined as undefined | string,
 });
 
 const pageBreadcrumbs = computed<BreadcrumbItem[]>(() => [
@@ -101,6 +104,10 @@ function submitSchedule() {
 }
 
 function submitResult() {
+    if (Number(resultForm.home_team_score) !== Number(resultForm.away_team_score)) {
+        resultForm.winner_side = null;
+    }
+
     resultForm.put(storeResult([props.league.slug, props.season.id, props.stage.id, props.game.id]).url, {
         preserveScroll: true,
     });
@@ -113,7 +120,7 @@ function clearResult() {
 
     router.delete(
         destroyResult([props.league.slug, props.season.id, props.stage.id, props.game.id]).url,
-        { preserveScroll: true },
+        { preserveScroll: true, onError: (errors) => resultForm.setError('result', errors.result ?? 'Could not clear the result.') },
     );
 }
 </script>
@@ -185,6 +192,17 @@ function clearResult() {
                             <InputError :message="resultForm.errors.away_team_score" />
                         </div>
                     </div>
+                    <div v-if="stage.format === 'single_elimination' && Number(resultForm.home_team_score) === Number(resultForm.away_team_score)" class="grid gap-2">
+                        <Label for="winner_side">Winning side after tie-break</Label>
+                        <select id="winner_side" v-model="resultForm.winner_side" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                            <option :value="null">Choose the winning team</option>
+                            <option value="home">{{ game.home_team?.name ?? 'Home' }}</option>
+                            <option value="away">{{ game.away_team?.name ?? 'Away' }}</option>
+                        </select>
+                        <p class="text-xs text-muted-foreground">The match score stays unchanged. This selection decides who advances.</p>
+                        <InputError :message="resultForm.errors.winner_side" />
+                    </div>
+                    <InputError :message="resultForm.errors.result" />
                     <div class="flex items-center gap-3">
                         <Button type="submit" :disabled="resultForm.processing">
                             {{ hasResult ? 'Update result' : 'Record result' }}
