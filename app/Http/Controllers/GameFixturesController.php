@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\ScheduleGame;
 use App\Enums\GameStatus;
 use App\Http\Requests\StoreResultRequest;
 use App\Http\Requests\UpdateGameScheduleRequest;
@@ -41,14 +42,16 @@ class GameFixturesController extends Controller
             'season' => $season->only(['id', 'name']),
             'stage' => $stage->only(['id', 'name', 'format']),
             'game' => $game,
+            'timezone' => config('app.timezone'),
+            'scheduleWindowMinutes' => config('games.schedule_window_minutes'),
         ]);
     }
 
-    public function updateSchedule(UpdateGameScheduleRequest $request, League $league, Season $season, Stage $stage, Game $game): RedirectResponse
+    public function updateSchedule(UpdateGameScheduleRequest $request, League $league, Season $season, Stage $stage, Game $game, ScheduleGame $scheduler): RedirectResponse
     {
         $this->ensureChain($league, $season, $stage, $game);
 
-        $game->update($request->validated());
+        $scheduler->execute($game, $request->validated());
 
         // Redirect to Stage Show rather than back() so the user sees their
         // change confirmed on the fixture list. back() would return to the
