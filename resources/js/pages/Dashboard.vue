@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import DashboardEmptyState from '@/components/DashboardEmptyState.vue';
 import DashboardSkeleton from '@/components/DashboardSkeleton.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -67,6 +68,7 @@ const isLoading = ref(false);
 const loadError = ref<string | null>(null);
 const leagues = computed(() => props.overview?.leagues ?? []);
 const summary = computed(() => props.overview?.summary);
+const hasActiveSeasons = computed(() => leagues.value.some((league) => league.seasons.length > 0));
 let cancelPending: (() => void) | null = null;
 
 function loadOverview(): void {
@@ -187,20 +189,7 @@ defineOptions({
 
         <DashboardSkeleton v-if="!overview && !loadError" />
 
-        <Card v-if="overview && leagues.length === 0" class="border-dashed">
-            <CardHeader class="gap-3">
-                <CardTitle class="text-xl">Your first matchday starts here</CardTitle>
-                <CardDescription class="max-w-xl">
-                    Create a league, add a season, then set up stages and fixtures. Your matches and next steps will appear here.
-                </CardDescription>
-            </CardHeader>
-            <CardContent class="flex flex-wrap gap-3">
-                <Button as-child><Link :href="createLeague()">Create a league</Link></Button>
-                <Button variant="outline" as-child><Link :href="leaguesIndex()">Browse leagues</Link></Button>
-            </CardContent>
-        </Card>
-
-        <template v-else-if="overview && summary">
+        <template v-if="overview && summary">
             <div class="grid gap-4 sm:grid-cols-3" aria-label="Matchday summary">
                 <a
                     v-for="item in summaryCards"
@@ -221,11 +210,15 @@ defineOptions({
                         <CardDescription>Today’s schedule, plus any matches still in progress. Refresh for the latest overview.</CardDescription>
                     </CardHeader>
                     <CardContent class="flex flex-col gap-6">
-                        <div v-if="matchGroups.length === 0" class="flex flex-col gap-3 rounded-lg border border-dashed p-6">
-                            <p class="text-sm font-medium">A quiet matchday</p>
-                            <p class="text-sm text-muted-foreground">No matches today and none in progress. Open a season to schedule your next fixture.</p>
-                            <a href="#my-leagues" class="self-start text-sm font-medium underline underline-offset-4">Go to my leagues</a>
-                        </div>
+                        <DashboardEmptyState
+                            v-if="matchGroups.length === 0"
+                            :title="leagues.length === 0 ? 'Your first kickoff is ahead' : 'A quiet matchday'"
+                            :description="leagues.length === 0 ? 'Create a league and set up its season to bring your fixtures here.' : 'No matches today and none in progress. Open a season to schedule your next fixture.'"
+                            class="min-h-48 justify-center"
+                        >
+                            <Button v-if="leagues.length === 0" as-child class="w-full sm:w-auto"><Link :href="createLeague()">Create a league</Link></Button>
+                            <Button v-else variant="outline" as-child class="w-full sm:w-auto"><a href="#my-leagues">Go to my leagues</a></Button>
+                        </DashboardEmptyState>
                         <section v-for="group in matchGroups" :key="group.key" class="flex flex-col gap-3" :aria-labelledby="`matches-${group.key}`">
                             <div>
                                 <h2 :id="`matches-${group.key}`" class="text-sm font-semibold">{{ group.title }} <span class="text-muted-foreground">({{ group.matches.length }})</span></h2>
@@ -262,10 +255,20 @@ defineOptions({
                         <CardDescription>Next steps for your active seasons.</CardDescription>
                     </CardHeader>
                     <CardContent class="flex flex-col gap-6">
-                        <div v-if="attentionGroups.length === 0" class="flex flex-col gap-2 rounded-lg border border-dashed p-5">
-                            <p class="text-sm font-medium">You’re all caught up</p>
-                            <p class="text-sm text-muted-foreground">No overdue matches or fixture setup tasks in your active seasons.</p>
-                        </div>
+                        <DashboardEmptyState
+                            v-if="attentionGroups.length === 0 && !hasActiveSeasons"
+                            title="Ready when you are"
+                            description="Setup reminders will appear here once you have an active season. Start with a league, then add or activate a season."
+                            class="min-h-48 justify-center"
+                        >
+                            <Button variant="outline" as-child class="w-full sm:w-auto"><a href="#my-leagues">{{ leagues.length === 0 ? 'Get started below' : 'Open my leagues' }}</a></Button>
+                        </DashboardEmptyState>
+                        <DashboardEmptyState
+                            v-else-if="attentionGroups.length === 0"
+                            title="You’re all caught up"
+                            description="No overdue matches or fixture setup tasks in your active seasons."
+                            class="min-h-48 justify-center"
+                        />
                         <section v-for="group in attentionGroups" :key="group.key" class="flex flex-col gap-3" :aria-labelledby="`attention-${group.key}`">
                             <div>
                                 <h2 :id="`attention-${group.key}`" class="text-sm font-semibold">{{ group.title }} ({{ group.count }})</h2>
@@ -290,6 +293,21 @@ defineOptions({
                     <Link :href="leaguesIndex()" class="text-sm font-medium underline underline-offset-4">Browse leagues</Link>
                 </div>
                 <div class="grid items-start gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                    <Card v-if="leagues.length === 0" class="min-w-0">
+                        <CardHeader>
+                            <CardTitle class="text-base">Your first matchday starts here</CardTitle>
+                            <CardDescription>No leagues yet</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <DashboardEmptyState
+                                title="Create your first league"
+                                description="Add a season, set up stages, then generate fixtures. Your matches and next steps will appear in this overview."
+                            >
+                                <Button as-child class="w-full sm:w-auto"><Link :href="createLeague()">Create a league</Link></Button>
+                                <Button variant="outline" as-child class="w-full sm:w-auto"><Link :href="leaguesIndex()">Browse leagues</Link></Button>
+                            </DashboardEmptyState>
+                        </CardContent>
+                    </Card>
                     <Card v-for="league in leagues" :key="league.id" class="min-w-0">
                         <CardHeader>
                             <div class="flex items-start justify-between gap-3">
@@ -299,16 +317,25 @@ defineOptions({
                             <CardDescription>{{ league.seasons.length }} active {{ league.seasons.length === 1 ? 'season' : 'seasons' }}</CardDescription>
                         </CardHeader>
                         <CardContent class="flex flex-col gap-5">
-                            <div v-if="league.seasons.length === 0" class="flex flex-col gap-2 text-sm">
-                                <p class="text-muted-foreground">No active season. Open the league to activate one, or start a new season.</p>
-                                <Link :href="league.createSeasonUrl" class="self-start font-medium underline underline-offset-4">Add a season</Link>
-                            </div>
+                            <DashboardEmptyState
+                                v-if="league.seasons.length === 0"
+                                title="No active season"
+                                description="Activate an existing season or start a new one to see its progress here."
+                                compact
+                            >
+                                <Button variant="outline" size="sm" as-child class="w-full sm:w-auto"><Link :href="league.href">Open league</Link></Button>
+                                <Button size="sm" as-child class="w-full sm:w-auto"><Link :href="league.createSeasonUrl">Add a season</Link></Button>
+                            </DashboardEmptyState>
                             <div v-for="season in league.seasons" :key="season.id" class="flex flex-col gap-2">
                                 <Link :href="season.href" class="break-words text-sm font-semibold hover:underline">{{ season.name }}</Link>
-                                <div v-if="season.games === 0" class="flex flex-col gap-2 rounded-lg border border-dashed p-3 text-xs">
-                                    <p class="text-muted-foreground">No fixtures yet. Open this season to set up stages and generate its schedule.</p>
-                                    <Link :href="season.href" class="self-start font-medium underline underline-offset-4">Set up fixtures</Link>
-                                </div>
+                                <DashboardEmptyState
+                                    v-if="season.games === 0"
+                                    title="No fixtures yet"
+                                    description="Set up stages and generate this season’s schedule."
+                                    compact
+                                >
+                                    <Button variant="outline" size="sm" as-child class="w-full sm:w-auto"><Link :href="season.href">Set up fixtures</Link></Button>
+                                </DashboardEmptyState>
                                 <p v-else class="text-xs text-muted-foreground">{{ season.completed }} of {{ season.games }} matches finished</p>
                                 <div v-if="season.games > 0" role="progressbar" :aria-label="`${season.name} match completion`" :aria-valuenow="progress(season)" :aria-valuemin="0" :aria-valuemax="100" class="h-1.5 overflow-hidden rounded-full bg-muted">
                                     <div class="h-full rounded-full bg-primary" :style="{ width: `${progress(season)}%` }" />
@@ -317,7 +344,14 @@ defineOptions({
                                     <p class="text-muted-foreground">Next fixture · {{ kickoffLabel(season.nextFixture.kickoff) }}</p>
                                     <p class="mt-1 break-words">{{ season.nextFixture.homeTeam }} vs {{ season.nextFixture.awayTeam }}</p>
                                 </div>
-                                <p v-else-if="season.games > 0" class="mt-1 text-xs text-muted-foreground">No upcoming fixture scheduled. <Link :href="season.href" class="font-medium underline underline-offset-4">Review schedule</Link></p>
+                                <DashboardEmptyState
+                                    v-else-if="season.games > 0"
+                                    title="No upcoming fixture scheduled"
+                                    description="Review the season’s schedule to see results or assign the next kickoff."
+                                    compact
+                                >
+                                    <Button variant="outline" size="sm" as-child class="w-full sm:w-auto"><Link :href="season.href">Review schedule</Link></Button>
+                                </DashboardEmptyState>
                             </div>
                         </CardContent>
                     </Card>
