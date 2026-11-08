@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Domain\Formats\FormatRegistry;
+use App\Enums\StageFormat;
 use App\Models\Stage;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -35,8 +37,11 @@ class UpdateStageRequest extends FormRequest
                     ->ignore($stageId)
                     ->where(fn ($q) => $q->where('season_id', $seasonId)),
             ],
-            // Format is intentionally not editable post-creation: changing it
-            // would invalidate any already-generated fixtures and groups.
+            'format' => [
+                'sometimes',
+                Rule::prohibitedIf(! $this->canReplaceFormat()),
+                Rule::in(array_map(fn (StageFormat $format): string => $format->value, app(FormatRegistry::class)->supportedFormats())),
+            ],
             'order' => ['nullable', 'integer', 'min:0', 'max:65535'],
             'starts_on' => ['nullable', 'date'],
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
@@ -51,7 +56,7 @@ class UpdateStageRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $stage = $this->route('stage');
-        $format = $stage instanceof Stage ? $stage->format->value : null;
+        $format = $this->input('format', $stage instanceof Stage ? $stage->format->value : null);
 
         $config = $this->input('config', []);
         if (! is_array($config)) {
@@ -81,22 +86,19 @@ class UpdateStageRequest extends FormRequest
         ]);
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    public function validated($key = null, $default = null)
+    private function canReplaceFormat(): bool
     {
-        // The format column stays whatever it was when the stage was created;
-        // we strip it from any incoming payload defensively.
-        $data = parent::validated();
-        unset($data['format']);
+        $stage = $this->route('stage');
 
-        return $key === null ? $data : ($data[$key] ?? $default);
+        return $stage instanceof Stage && ! app(FormatRegistry::class)->supports($stage->format)
+            && ! $stage->games()->exists() && ! $stage->groups()->exists();
     }
 
     public function messages(): array
     {
         return [
+            'format.prohibited' => 'The format is locked after setup. Only an empty unsupported stage can change format.',
+            'format.in' => 'Choose a supported competition format.',
             'name.unique' => 'A stage with that name already exists in this season.',
             'ends_on.after_or_equal' => 'End date must be on or after the start date.',
             'config.legs_per_group.in' => 'Legs per group must be either 1 (single round-robin) or 2 (home and away).',

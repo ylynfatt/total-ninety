@@ -39,6 +39,12 @@ class FormatRegistry
         ];
     }
 
+    /** @return list<StageFormat> */
+    public function supportedFormats(): array
+    {
+        return array_values(array_filter(StageFormat::cases(), $this->supports(...)));
+    }
+
     public function for(StageFormat $format): FixtureGenerator
     {
         if (! isset($this->generators[$format->value])) {
