@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Game;
 use App\Models\Season;
 use App\Models\Team;
 use App\Models\User;
@@ -62,6 +63,7 @@ describe('TeamsController create / store', function () {
             ->assertRedirect();
 
         $team = Team::where('name', 'Test FC')->firstOrFail();
+        expect($team->user_id)->toBe($user->id);
         expect($team->acronym)->toBe('TFC');
         expect($team->year_founded)->toBe(1950);
     });
@@ -143,9 +145,9 @@ describe('TeamsController update', function () {
             ->assertRedirect('/login');
     });
 
-    it('lets any authenticated user update any team (open trust model)', function () {
+    it('lets the team owner update their team', function () {
         $team = Team::factory()->create(['name' => 'Old Name']);
-        $user = User::factory()->create();
+        $user = $team->owner;
 
         $this->actingAs($user)
             ->put("/teams/{$team->id}", [
@@ -160,7 +162,7 @@ describe('TeamsController update', function () {
 
     it('allows the owner to keep their existing acronym on update', function () {
         $team = Team::factory()->create(['acronym' => 'KPT']);
-        $user = User::factory()->create();
+        $user = $team->owner;
 
         $this->actingAs($user)
             ->put("/teams/{$team->id}", [
@@ -177,7 +179,7 @@ describe('TeamsController update', function () {
 describe('TeamsController destroy', function () {
     it('lets an authenticated user delete a team that has no season attachments', function () {
         $team = Team::factory()->create();
-        $user = User::factory()->create();
+        $user = $team->owner;
 
         $this->actingAs($user)
             ->delete("/teams/{$team->id}")
@@ -191,7 +193,7 @@ describe('TeamsController destroy', function () {
         $season = Season::factory()->create();
         $season->teams()->attach($team);
 
-        $user = User::factory()->create();
+        $user = $team->owner;
 
         $this->actingAs($user)
             ->from("/teams/{$team->id}")
@@ -200,4 +202,28 @@ describe('TeamsController destroy', function () {
 
         expect(Team::find($team->id))->not->toBeNull();
     });
+});
+
+it('forbids unrelated users and leaves unowned legacy teams read-only', function (): void {
+    $user = User::factory()->create();
+    $owned = Team::factory()->create();
+    $legacy = Team::factory()->create(['user_id' => null]);
+
+    foreach ([$owned, $legacy] as $team) {
+        $this->actingAs($user)->get(route('teams.edit', $team))->assertForbidden();
+        $this->put(route('teams.update', $team), [
+            'name' => 'Unauthorized', 'acronym' => $team->acronym, 'year_founded' => $team->year_founded,
+        ])->assertForbidden();
+        $this->delete(route('teams.destroy', $team))->assertForbidden();
+        $this->get(route('teams.show', $team))->assertInertia(fn ($page) => $page
+            ->where('can.update', false)->where('can.delete', false));
+    }
+});
+
+it('refuses to delete a team referenced by a fixture even without a season attachment', function (): void {
+    $team = Team::factory()->create();
+    Game::factory()->create(['home_team_id' => $team->id]);
+
+    $this->actingAs($team->owner)->delete(route('teams.destroy', $team))->assertSessionHasErrors('delete');
+    expect($team->fresh())->not->toBeNull();
 });

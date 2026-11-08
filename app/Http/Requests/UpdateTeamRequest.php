@@ -11,7 +11,8 @@ class UpdateTeamRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return $this->route('team') instanceof Team
+            && ($this->user()?->can('update', $this->route('team')) ?? false);
     }
 
     /**
