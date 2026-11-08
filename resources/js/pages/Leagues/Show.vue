@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDateRange } from '@/lib/datetime';
-import { destroy, edit, index, show } from '@/routes/leagues';
+import { destroy, edit, index } from '@/routes/leagues';
 import { create as createSeason, show as seasonShow } from '@/routes/seasons';
 import type { BreadcrumbItem } from '@/types';
 

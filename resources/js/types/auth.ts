@@ -12,6 +12,11 @@ export type User = {
 
 export type Auth = {
     user: User;
+    permissions: {
+        league: {
+            create: boolean;
+        };
+    };
 };
 
 /* @chisel-passkeys */

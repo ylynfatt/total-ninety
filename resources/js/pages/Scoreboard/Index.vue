@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { useEchoPublicClient } from '@/composables/useEchoPublicClient';
 import { ref } from 'vue';
 import AnimatedScore from '@/components/AnimatedScore.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
+import { useEchoPublicClient } from '@/composables/useEchoPublicClient';
 import { matchClockMinute, useNow } from '@/composables/useMatchClock';
 import { show as gamecastShow } from '@/routes/games';
 import { index } from '@/routes/scoreboard';

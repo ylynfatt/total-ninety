@@ -94,8 +94,13 @@ function entrantOf(token: string): Entrant {
 }
 
 function positionLabel(position: number, group: string): string {
-    if (position === 1) return `Winner ${group}`;
-    if (position === 2) return `Runner-up ${group}`;
+    if (position === 1) {
+        return `Winner ${group}`;
+    }
+
+    if (position === 2) {
+        return `Runner-up ${group}`;
+    }
 
     const suffix = position % 10 === 3 && position % 100 !== 13 ? 'rd' : 'th';
 
@@ -103,7 +108,9 @@ function positionLabel(position: number, group: string): string {
 }
 
 const slotOptions = computed<{ value: string; label: string }[]>(() => {
-    if (!props.sourceStage) return [];
+    if (!props.sourceStage) {
+        return [];
+    }
 
     const options: { value: string; label: string }[] = [];
 
@@ -121,7 +128,9 @@ const slotOptions = computed<{ value: string; label: string }[]>(() => {
 });
 
 const qualifierTotal = computed(() => {
-    if (!props.sourceStage) return 0;
+    if (!props.sourceStage) {
+        return 0;
+    }
 
     return props.sourceStage.groups.length * props.sourceStage.advances_count + props.sourceStage.best_placed_count;
 });
@@ -339,6 +348,7 @@ function moveMatch(from: number, to: number): void {
     }
 
     const pairs: [string | null, string | null][] = [];
+
     for (let i = 0; i < slots.value.length; i += 2) {
         pairs.push([slots.value[i], slots.value[i + 1]]);
     }

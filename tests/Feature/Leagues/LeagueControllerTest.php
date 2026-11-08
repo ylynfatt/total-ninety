@@ -5,7 +5,12 @@ use App\Models\User;
 
 describe('LeaguesController index', function () {
     it('renders the index page for unauthenticated visitors', function () {
-        $this->get('/leagues')->assertOk();
+        $this->get('/leagues')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Leagues/Index')
+                ->where('auth.permissions.league.create', false)
+            );
     });
 
     it('lists public leagues to anonymous visitors', function () {
@@ -32,6 +37,7 @@ describe('LeaguesController index', function () {
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->has('leagues', 2)
+            ->where('auth.permissions.league.create', true)
         );
     });
 });

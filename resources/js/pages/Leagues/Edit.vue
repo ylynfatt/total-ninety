@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { edit, index, show, update } from '@/routes/leagues';
+import { index, show, update } from '@/routes/leagues';
 
 interface League {
     id: number;

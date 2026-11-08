@@ -47,6 +47,7 @@ function deleteTeam() {
     if (!confirm(`Delete team "${props.team.name}"? This cannot be undone.`)) {
         return;
     }
+
     router.delete(destroy(props.team.id).url);
 }
 </script>

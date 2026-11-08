@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { useEchoPublicClient } from '@/composables/useEchoPublicClient';
 import { computed, nextTick, ref, watch } from 'vue';
 import AnimatedScore from '@/components/AnimatedScore.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import GamecastEditor from '@/components/GamecastEditor.vue';
+import { useEchoPublicClient } from '@/composables/useEchoPublicClient';
 import { matchClockMinute, useNow } from '@/composables/useMatchClock';
 import { formatDate } from '@/lib/datetime';
 import { show as leagueShow } from '@/routes/leagues';

@@ -138,6 +138,8 @@ interface BracketRound {
         bracket_position: number;
         home_team: { id: number; name: string; acronym: string } | null;
         away_team: { id: number; name: string; acronym: string } | null;
+        home_placeholder: string | null;
+        away_placeholder: string | null;
         home_team_score: number | null;
         away_team_score: number | null;
         status: string;
@@ -160,7 +162,7 @@ const props = defineProps<{
 }>();
 
 const overallStandings = computed<StandingRow[] | null>(() => {
-    if (props.standings && 'overall' in props.standings) {
+    if (props.standings && 'overall' in props.standings && Array.isArray(props.standings.overall)) {
         return props.standings.overall;
     }
 
@@ -222,7 +224,7 @@ const pageBreadcrumbs = computed<BreadcrumbItem[]>(() => [
     { title: props.stage.name, href: '#' },
 ]);
 
-const generateForm = useForm({});
+const generateForm = useForm<{ fixtures?: string }>({});
 
 function generate() {
     generateForm.post(
@@ -235,7 +237,9 @@ function generate() {
  * Round-1 matchups from the seeding preview: consecutive slot pairs.
  */
 const seedingMatches = computed<{ home: SeedingSlot; away: SeedingSlot }[]>(() => {
-    if (!props.seeding) return [];
+    if (!props.seeding) {
+        return [];
+    }
 
     const matches: { home: SeedingSlot; away: SeedingSlot }[] = [];
 
@@ -255,7 +259,7 @@ function slotHint(slot: SeedingSlot): string {
     return slot.origin_group ? `${slot.label} · ${slot.origin_group}` : slot.label;
 }
 
-const seedForm = useForm({});
+const seedForm = useForm<{ seeding?: string }>({});
 
 function applySeeding() {
     const verb = props.seeding?.seeded ? 'Re-seed' : 'Seed';

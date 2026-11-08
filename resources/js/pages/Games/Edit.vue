@@ -88,6 +88,7 @@ function isoDate(value: string | null | undefined): string {
     if (!value) {
         return '';
     }
+
     return value.length >= 10 ? value.slice(0, 10) : value;
 }
 
@@ -109,6 +110,7 @@ function clearResult() {
     if (!confirm('Clear the recorded result for this fixture?')) {
         return;
     }
+
     router.delete(
         destroyResult([props.league.slug, props.season.id, props.stage.id, props.game.id]).url,
         { preserveScroll: true },
