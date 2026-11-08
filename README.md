@@ -1,66 +1,90 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Total Ninety
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Total Ninety is a soccer league and tournament management app built with Laravel 13, Inertia.js 3, Vue 3, and Tailwind CSS 4. Organize leagues, seasons, teams, groups, and fixtures; record results; follow standings and knockout brackets; and run live match commentary and scoreboards through Laravel Reverb.
 
-## About Laravel
+The dashboard gives league owners a matchday overview with fixtures, season progress, and setup reminders. Leagues can be public or private, and team changes are restricted to their owners.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Requirements
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- PHP **8.4.1+** (use PHP 8.4 or 8.5), with Laravel’s required extensions and **PDO SQLite** for the default database.
+- Composer **2.x**.
+- Node.js **24.x** and npm, including for the frontend tests.
+- A writable `storage/` directory and `bootstrap/cache/` directory.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+SQLite is the default database. Local development uses database-backed sessions, queues, and cache; Redis is optional. Reverb provides the WebSocket server for live updates.
 
-## Learning Laravel
+## Local setup
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+Clone the repository and install the locked dependencies:
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+```sh
+git clone https://github.com/ylynfatt/total-ninety.git
+cd total-ninety
+composer install
+npm ci
+cp .env.example .env
+php artisan key:generate --no-interaction
+touch database/database.sqlite
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+In `.env`, set `APP_URL` to the address you will use to open the app, and choose `APP_TIMEZONE` for match scheduling and the dashboard. Leave `DB_CONNECTION=sqlite` for the default setup.
 
-## Laravel Sponsors
+Add the following Reverb configuration to `.env`. Replace the example key and secret with your own random strings; the frontend key must match the server key.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+```dotenv
+BROADCAST_CONNECTION=reverb
+REVERB_APP_ID=total-ninety
+REVERB_APP_KEY=your-local-key
+REVERB_APP_SECRET=your-local-secret
 
-### Premium Partners
+REVERB_SERVER_HOST=127.0.0.1
+REVERB_SERVER_PORT=8080
+REVERB_HOST=127.0.0.1
+REVERB_PORT=8080
+REVERB_SCHEME=http
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+VITE_REVERB_APP_KEY="${REVERB_APP_KEY}"
+VITE_REVERB_HOST="${REVERB_HOST}"
+VITE_REVERB_PORT="${REVERB_PORT}"
+VITE_REVERB_SCHEME="${REVERB_SCHEME}"
+```
 
-## Contributing
+This configuration is for local HTTP development. If your site uses HTTPS, configure Reverb and the frontend WebSocket connection for HTTPS/WSS as well.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Create the database tables and build the frontend:
 
-## Code of Conduct
+```sh
+php artisan migrate --no-interaction
+npm run build
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+The first frontend build downloads the configured fonts, so it needs internet access.
 
-## Security Vulnerabilities
+Start the development processes:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```sh
+php artisan dev
+```
 
-## License
+Laravel automatically discovers and starts the HTTP server, queue listener, Reverb server, log viewer, and Vite development server. `composer run dev` is also available as an alias for this command. Open the address printed by the HTTP server and make sure `APP_URL` matches it. Restart the development processes after changing `.env`.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Register an account, create a league and season, add teams, then create stages and generate fixtures. Seeding is optional. Password reset emails are written to the application log by default (`MAIL_MAILER=log`); configure an SMTP provider to deliver email.
+
+## Development checks
+
+```sh
+php artisan test --compact
+npm run test:frontend
+npm run types:check
+npm run lint:check
+npm run build
+```
+
+The PHP tests use an in-memory SQLite database. Finish the frontend build before running PHP tests, since page-rendering tests read the generated asset manifest.
+
+## Configuration notes
+
+- Supported formats include single and double round-robin, group stages, single elimination, and conferences. Double elimination is not currently supported.
+- Fixture scheduling reserves a **120-minute** window for each team and venue. Change `schedule_window_minutes` in `config/games.php` to adjust it.
+- Multi-server deployments need a shared cache store so the scheduling lock coordinates edits across instances.
+- When updating an existing installation, run `composer install`, `npm ci`, `php artisan migrate --no-interaction`, and `npm run build`. Existing teams without an owner remain read-only until ownership is assigned.
