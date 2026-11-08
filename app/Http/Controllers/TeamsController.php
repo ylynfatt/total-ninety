@@ -10,18 +10,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Teams admin (Inertia).
- *
- * Trust model for now: teams are a globally-shared resource. Anyone
- * signed in can create / edit / delete any team. There's no per-team
- * ownership column yet — if usage outgrows this, a follow-up PR can
- * add a `user_id` + a TeamPolicy.
- *
- * Destroy is intentionally conservative: a team that's already
- * attached to one or more seasons can't be deleted (the FK
- * restrictOnDelete on games would error out anyway). We catch that
- * case explicitly so the user gets a friendly message instead of a
- * 500.
+ * Teams remain discoverable across leagues; only their creator may mutate
+ * them. Existing unowned shared teams remain read-only until assigned.
  */
 class TeamsController extends Controller
 {
@@ -40,12 +30,14 @@ class TeamsController extends Controller
 
     public function create(): Response
     {
+        $this->authorize('create', Team::class);
+
         return Inertia::render('Teams/Create');
     }
 
     public function store(StoreTeamRequest $request): RedirectResponse
     {
-        $team = Team::create($request->validated());
+        $team = Team::create([...$request->validated(), 'user_id' => $request->user()->id]);
 
         return redirect()
             ->route('teams.show', $team)
@@ -63,14 +55,17 @@ class TeamsController extends Controller
         return Inertia::render('Teams/Show', [
             'team' => $team,
             'can' => [
-                'update' => request()->user() !== null,
-                'delete' => request()->user() !== null && $team->seasons->isEmpty(),
+                'update' => request()->user()?->can('update', $team) ?? false,
+                'delete' => (request()->user()?->can('delete', $team) ?? false)
+                    && ! $team->seasons()->exists() && ! $team->homeGames()->exists() && ! $team->awayGames()->exists(),
             ],
         ]);
     }
 
     public function edit(Team $team): Response
     {
+        $this->authorize('update', $team);
+
         return Inertia::render('Teams/Edit', [
             'team' => $team,
         ]);
@@ -87,9 +82,11 @@ class TeamsController extends Controller
 
     public function destroy(Team $team): RedirectResponse
     {
-        if ($team->seasons()->exists()) {
+        $this->authorize('delete', $team);
+
+        if ($team->seasons()->exists() || $team->homeGames()->exists() || $team->awayGames()->exists()) {
             return back()->withErrors([
-                'delete' => "\"{$team->name}\" is attached to one or more seasons. Detach it from those seasons first.",
+                'delete' => "\"{$team->name}\" is used by a season or fixture and cannot be deleted.",
             ]);
         }
 
