@@ -18,6 +18,12 @@ class ScoreboardController extends Controller
     {
         $games = Game::query()
             ->whereIn('status', [GameStatus::Live, GameStatus::HalfTime])
+            ->where(function ($query) {
+                $query->whereHas('stage.season.league', fn ($league) => $league->where('is_public', true))
+                    ->orWhere(fn ($legacy) => $legacy->whereNull('stage_id')
+                        ->where(fn ($season) => $season->whereHas('season.league', fn ($league) => $league->where('is_public', true))
+                            ->orWhereNull('season_id')));
+            })
             ->with(['homeTeam:id,name,acronym', 'awayTeam:id,name,acronym', 'result', 'season.league:id,name,slug'])
             ->orderBy('match_date')
             ->get()

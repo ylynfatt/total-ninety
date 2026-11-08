@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Enums\GameEventType;
 use App\Enums\GameStatus;
 use App\Observers\GameObserver;
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -43,6 +45,21 @@ class Game extends Model
             'round' => 'integer',
             'bracket_position' => 'integer',
         ];
+    }
+
+    /** @return list<Channel> */
+    public function broadcastChannels(bool $includeScoreboard = true): array
+    {
+        $this->load(['stage.season.league', 'season.league']);
+        $league = $this->stage?->season?->league ?? $this->season?->league;
+
+        if ($league !== null && ! $league->is_public) {
+            return [new PrivateChannel("game.{$this->id}.owner.{$league->user_id}")];
+        }
+
+        return $includeScoreboard
+            ? [new Channel("game.{$this->id}"), new Channel('scoreboard.live')]
+            : [new Channel("game.{$this->id}")];
     }
 
     public function homeTeam(): BelongsTo

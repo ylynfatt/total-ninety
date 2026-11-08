@@ -26,6 +26,7 @@ class GamecastController extends Controller
     public function show(League $league, Season $season, Stage $stage, Game $game): Response
     {
         $this->ensureChain($league, $season, $stage, $game);
+        $this->authorize('view', $game);
 
         $canUpdate = request()->user()?->can('update', $game) ?? false;
 
@@ -70,6 +71,8 @@ class GamecastController extends Controller
                 })->all();
             })(),
             'can' => ['update' => $canUpdate],
+            'broadcastChannel' => $league->is_public ? "game.{$game->id}" : "game.{$game->id}.owner.{$league->user_id}",
+            'privateBroadcast' => ! $league->is_public,
             // Rosters power the editor's player pickers; only the owner needs
             // them, so public viewers don't pay for the extra query/payload.
             'rosters' => $canUpdate ? $this->rosters($game) : null,

@@ -1,4 +1,4 @@
-import { useEchoPublic } from '@laravel/echo-vue';
+import { useEcho, useEchoPublic } from '@laravel/echo-vue';
 
 /**
  * Subscribe to a public Echo channel, but only in the browser.
@@ -14,12 +14,16 @@ import { useEchoPublic } from '@laravel/echo-vue';
  * matches the wire event. A leading dot tells Echo to use the name verbatim,
  * so we add one here — keeping every call site free of that detail.
  */
-export function useEchoPublicClient<T>(channel: string, event: string, callback: (payload: T) => void): void {
+export function useEchoPublicClient<T>(channel: string, event: string, callback: (payload: T) => void, isPrivate = false): void {
     if (typeof window === 'undefined') {
         return;
     }
 
     const exactEvent = event.startsWith('.') || event.startsWith('\\') ? event : `.${event}`;
 
-    useEchoPublic(channel, exactEvent, callback);
+    if (isPrivate) {
+        useEcho(channel, exactEvent, callback);
+    } else {
+        useEchoPublic(channel, exactEvent, callback);
+    }
 }

@@ -29,7 +29,8 @@ class TeamsController extends Controller
     {
         $teams = Team::query()
             ->orderBy('name')
-            ->withCount('seasons')
+            ->withCount(['seasons' => fn ($query) => $query->whereHas('league', fn ($league) => $league
+                ->where('is_public', true)->orWhere('user_id', request()->user()?->id))])
             ->get(['id', 'name', 'acronym', 'home_ground', 'year_founded']);
 
         return Inertia::render('Teams/Index', [
@@ -54,7 +55,8 @@ class TeamsController extends Controller
     public function show(Team $team): Response
     {
         $team->load([
-            'seasons:id,league_id,name',
+            'seasons' => fn ($query) => $query->whereHas('league', fn ($league) => $league
+                ->where('is_public', true)->orWhere('user_id', request()->user()?->id))->select(['seasons.id', 'league_id', 'seasons.name']),
             'seasons.league:id,name,slug',
         ]);
 

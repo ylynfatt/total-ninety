@@ -61,6 +61,8 @@ const props = defineProps<{
     season: { id: number; name: string };
     stage: { id: number; name: string };
     game: GamecastGame;
+    broadcastChannel: string;
+    privateBroadcast: boolean;
     events: GamecastEvent[];
     can: { update: boolean };
     rosters: { home: Roster; away: Roster } | null;
@@ -119,7 +121,7 @@ const clockMinute = computed(() => matchClockMinute(now.value, game.value.status
  * header needs, so no refetch is required for scores.
  */
 useEchoPublicClient(
-    `game.${props.game.id}`,
+    props.broadcastChannel,
     'ScoreUpdated',
     (e: { home_team_score: number | null; away_team_score: number | null; current_minute: number | null; clock_started_at: string | null; status: string }) => {
         game.value.home_team_score = e.home_team_score;
@@ -129,22 +131,23 @@ useEchoPublicClient(
         game.value.status = e.status;
         game.value.status_label = statusLabels[e.status] ?? e.status;
     },
+    props.privateBroadcast,
 );
 
-useEchoPublicClient(`game.${props.game.id}`, 'GameStatusChanged', (e: { status: string; current_minute: number | null; clock_started_at: string | null }) => {
+useEchoPublicClient(props.broadcastChannel, 'GameStatusChanged', (e: { status: string; current_minute: number | null; clock_started_at: string | null }) => {
     game.value.status = e.status;
     game.value.current_minute = e.current_minute;
     game.value.clock_started_at = e.clock_started_at;
     game.value.status_label = statusLabels[e.status] ?? e.status;
-});
+}, props.privateBroadcast);
 
 /**
  * A new timeline entry. The broadcast carries only IDs, so reload the resolved
  * `events` prop rather than rebuilding name lookups on the client.
  */
-useEchoPublicClient(`game.${props.game.id}`, 'GameEventRecorded', () => {
+useEchoPublicClient(props.broadcastChannel, 'GameEventRecorded', () => {
     router.reload({ only: ['events'] });
-});
+}, props.privateBroadcast);
 
 function eventMinute(event: GamecastEvent): string {
     if (event.minute === null) {
