@@ -55,6 +55,7 @@ const props = defineProps<{
     stage: Stage;
     formats: FormatOption[];
     sourceStage: SourceStage | null;
+    canChangeFormat: boolean;
 }>();
 
 const currentLegs = (props.stage.config?.legs_per_group as 1 | 2 | undefined) ?? 1;
@@ -62,6 +63,7 @@ const currentBestPlaced = (props.stage.config?.best_placed_count as number | und
 
 const form = useForm({
     name: props.stage.name,
+    ...(props.canChangeFormat ? { format: '' } : {}),
     order: props.stage.order,
     starts_on: props.stage.starts_on ?? '',
     ends_on: props.stage.ends_on ?? '',
@@ -552,12 +554,23 @@ function submit() {
 
         <header>
             <h1 class="text-2xl font-semibold tracking-tight">Edit stage</h1>
-            <p class="text-sm text-muted-foreground">
+            <p v-if="!canChangeFormat" class="text-sm text-muted-foreground">
                 Format: <span class="font-medium text-foreground">{{ formatLabel }}</span> (locked after creation)
             </p>
+            <p v-else class="text-sm text-muted-foreground">This stage uses an unsupported format. Choose a supported format before setting up fixtures.</p>
         </header>
 
         <form class="flex flex-col gap-5" @submit.prevent="submit">
+            <div v-if="canChangeFormat" class="grid max-w-2xl gap-2">
+                <Label for="format">Supported format</Label>
+                <Select v-model="form.format">
+                    <SelectTrigger id="format"><SelectValue placeholder="Choose a supported format" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="format in formats" :key="format.value" :value="format.value">{{ format.label }}</SelectItem>
+                    </SelectContent>
+                </Select>
+                <InputError :message="form.errors.format" />
+            </div>
             <div class="grid max-w-2xl gap-2">
                 <Label for="name">Name</Label>
                 <Input id="name" v-model="form.name" required autofocus />

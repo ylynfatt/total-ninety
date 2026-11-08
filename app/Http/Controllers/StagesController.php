@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\GenerateFixtures;
 use App\Actions\SeedStageFromGroups;
 use App\Domain\Formats\EntrantSlot;
+use App\Domain\Formats\FormatRegistry;
 use App\Domain\Standings\BestPlacedCalculator;
 use App\Domain\Standings\StandingsRegistry;
 use App\Enums\GameStatus;
@@ -336,6 +337,7 @@ class StagesController extends Controller
             'season' => $season->only(['id', 'name']),
             'stage' => $stage,
             'formats' => $this->formatOptions(),
+            'canChangeFormat' => ! app(FormatRegistry::class)->supports($stage->format) && ! $stage->games()->exists() && ! $stage->groups()->exists(),
             'sourceStage' => $stage->format->isBracket() ? $this->buildSourceStage($stage) : null,
         ]);
     }
@@ -419,7 +421,7 @@ class StagesController extends Controller
      */
     private function formatOptions(): array
     {
-        return collect(StageFormat::cases())->map(fn (StageFormat $format) => [
+        return collect(app(FormatRegistry::class)->supportedFormats())->map(fn (StageFormat $format) => [
             'value' => $format->value,
             'label' => $format->label(),
             'hasGroups' => $format->hasGroups(),

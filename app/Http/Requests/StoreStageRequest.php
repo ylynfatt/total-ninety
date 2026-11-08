@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Domain\Formats\EntrantSlot;
+use App\Domain\Formats\FormatRegistry;
 use App\Enums\StageFormat;
 use App\Models\Season;
 use Closure;
@@ -37,7 +38,7 @@ class StoreStageRequest extends FormRequest
                 'max:255',
                 Rule::unique('stages', 'name')->where(fn ($q) => $q->where('season_id', $seasonId)),
             ],
-            'format' => ['required', new Enum(StageFormat::class)],
+            'format' => ['required', (new Enum(StageFormat::class))->only(app(FormatRegistry::class)->supportedFormats())],
             'order' => ['nullable', 'integer', 'min:0', 'max:65535'],
             'starts_on' => ['nullable', 'date'],
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
@@ -145,6 +146,7 @@ class StoreStageRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'format' => 'Choose a supported competition format.',
             'name.unique' => 'A stage with that name already exists in this season.',
             'ends_on.after_or_equal' => 'End date must be on or after the start date.',
             'config.legs_per_group.in' => 'Legs per group must be either 1 (single round-robin) or 2 (home and away).',
