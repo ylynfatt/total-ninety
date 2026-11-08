@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import DashboardSkeleton from '@/components/DashboardSkeleton.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { dashboard } from '@/routes';
 import { create as createLeague, index as leaguesIndex } from '@/routes/leagues';
@@ -185,17 +185,7 @@ defineOptions({
             </CardContent>
         </Card>
 
-        <div v-if="!overview && !loadError" role="status" aria-label="Loading matchday overview" class="flex flex-col gap-6">
-            <p class="flex items-center gap-2 text-sm text-muted-foreground"><Spinner aria-hidden="true" /> Loading your matchday overview…</p>
-            <div aria-hidden="true" class="grid gap-4 sm:grid-cols-3">
-                <Skeleton v-for="item in 3" :key="item" class="h-36 rounded-xl motion-reduce:animate-none" />
-            </div>
-            <div aria-hidden="true" class="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-                <Skeleton class="h-72 rounded-xl motion-reduce:animate-none" />
-                <Skeleton class="h-72 rounded-xl motion-reduce:animate-none" />
-            </div>
-            <Skeleton aria-hidden="true" class="h-48 rounded-xl motion-reduce:animate-none" />
-        </div>
+        <DashboardSkeleton v-if="!overview && !loadError" />
 
         <Card v-if="overview && leagues.length === 0" class="border-dashed">
             <CardHeader class="gap-3">
