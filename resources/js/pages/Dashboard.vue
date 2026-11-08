@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
 import { dashboard } from '@/routes';
 import { create as createLeague, index as leaguesIndex } from '@/routes/leagues';
 
@@ -48,29 +50,84 @@ interface League {
     seasons: Season[];
 }
 
-const props = defineProps<{
-    dateLabel: string;
-    timezone: string;
+interface Overview {
     summary: { live: number; today: number; attention: number };
     matchday: { live: Match[]; upcoming: Match[]; finished: Match[]; other: Match[] };
     attention: AttentionGroup[];
     leagues: League[];
+}
+
+const props = defineProps<{
+    dateLabel: string;
+    timezone: string;
+    overview?: Overview;
 }>();
 
+const isLoading = ref(false);
+const loadError = ref<string | null>(null);
+const leagues = computed(() => props.overview?.leagues ?? []);
+const summary = computed(() => props.overview?.summary);
+let cancelPending: (() => void) | null = null;
+
+function loadOverview(): void {
+    if (isLoading.value) {
+        return;
+    }
+
+    isLoading.value = true;
+    loadError.value = null;
+    router.reload({
+        only: ['overview', 'dateLabel', 'timezone'],
+        onCancelToken: (token) => {
+            cancelPending = () => token.cancel();
+        },
+        onSuccess: (page) => {
+            if (!page.props.overview) {
+                loadError.value = 'The overview could not be loaded. Please try again.';
+            }
+        },
+        onError: () => {
+            loadError.value = 'The overview could not be loaded. Please try again.';
+        },
+        onHttpException: () => {
+            loadError.value = 'The dashboard is temporarily unavailable. Please try again.';
+
+            return false;
+        },
+        onNetworkError: () => {
+            loadError.value = 'We couldn’t connect. Check your connection and try again.';
+
+            return false;
+        },
+        onFinish: () => {
+            isLoading.value = false;
+            cancelPending = null;
+        },
+    });
+}
+
+onMounted(() => {
+    if (!props.overview) {
+        loadOverview();
+    }
+});
+
+onBeforeUnmount(() => cancelPending?.());
+
 const summaryCards = computed(() => [
-    { label: 'In progress', count: props.summary.live, href: '#matchday', description: 'Live and half-time matches in your leagues' },
-    { label: 'Fixtures today', count: props.summary.today, href: '#matchday', description: 'All matches scheduled for today' },
-    { label: 'Needs attention', count: props.summary.attention, href: '#attention', description: 'Tasks across your active seasons' },
+    { label: 'In progress', count: props.overview?.summary.live ?? 0, href: '#matchday', description: 'Live and half-time matches in your leagues' },
+    { label: 'Fixtures today', count: props.overview?.summary.today ?? 0, href: '#matchday', description: 'All matches scheduled for today' },
+    { label: 'Needs attention', count: props.overview?.summary.attention ?? 0, href: '#attention', description: 'Tasks across your active seasons' },
 ]);
 
 const matchGroups = computed(() => [
-    { key: 'live', title: 'In progress', description: 'Includes matches still in progress from earlier dates.', matches: props.matchday.live },
-    { key: 'upcoming', title: 'Scheduled today', description: 'Ready for kickoff or awaiting a status update.', matches: props.matchday.upcoming },
-    { key: 'finished', title: 'Finished today', description: 'Full-time scores from today’s fixtures.', matches: props.matchday.finished },
-    { key: 'other', title: 'Postponed or cancelled', description: 'Changes to today’s schedule.', matches: props.matchday.other },
+    { key: 'live', title: 'In progress', description: 'Includes matches still in progress from earlier dates.', matches: props.overview?.matchday.live ?? [] },
+    { key: 'upcoming', title: 'Scheduled today', description: 'Ready for kickoff or awaiting a status update.', matches: props.overview?.matchday.upcoming ?? [] },
+    { key: 'finished', title: 'Finished today', description: 'Full-time scores from today’s fixtures.', matches: props.overview?.matchday.finished ?? [] },
+    { key: 'other', title: 'Postponed or cancelled', description: 'Changes to today’s schedule.', matches: props.overview?.matchday.other ?? [] },
 ].filter((group) => group.matches.length > 0));
 
-const attentionGroups = computed(() => props.attention.filter((group) => group.count > 0));
+const attentionGroups = computed(() => (props.overview?.attention ?? []).filter((group) => group.count > 0));
 
 function kickoffLabel(value: string | null): string {
     if (!value) {
@@ -96,7 +153,7 @@ defineOptions({
 <template>
     <Head title="Dashboard" />
 
-    <div class="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6">
+    <div class="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6" :aria-busy="isLoading">
         <header class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your matchday</p>
@@ -104,9 +161,10 @@ defineOptions({
                 <p class="mt-2 text-sm text-muted-foreground">{{ dateLabel }} · Times in {{ timezone }}</p>
                 <p class="mt-1 text-sm text-muted-foreground">Matches and next steps for the leagues you manage.</p>
             </div>
-            <div v-if="leagues.length > 0" class="flex flex-wrap gap-2">
-                <Button variant="outline" as-child>
-                    <Link :href="dashboard()" preserve-scroll>Refresh overview</Link>
+            <div class="flex flex-wrap gap-2">
+                <Button variant="outline" :disabled="isLoading" @click="loadOverview">
+                    <Spinner v-if="isLoading" aria-hidden="true" />
+                    {{ isLoading ? (overview ? 'Refreshing…' : 'Loading…') : 'Refresh overview' }}
                 </Button>
                 <Button as-child>
                     <Link :href="createLeague()">Create league</Link>
@@ -114,7 +172,32 @@ defineOptions({
             </div>
         </header>
 
-        <Card v-if="leagues.length === 0" class="border-dashed">
+        <p v-if="isLoading && overview" role="status" class="text-sm text-muted-foreground">Refreshing your overview. Your previous data remains visible.</p>
+
+        <Card v-if="loadError" role="alert" class="border-destructive/50">
+            <CardHeader>
+                <CardTitle>{{ overview ? 'Couldn’t refresh the overview' : 'Couldn’t load the overview' }}</CardTitle>
+                <CardDescription>{{ loadError }}</CardDescription>
+            </CardHeader>
+            <CardContent class="flex flex-wrap items-center gap-3">
+                <Button :disabled="isLoading" @click="loadOverview">Try again</Button>
+                <p v-if="overview" class="text-sm text-muted-foreground">Showing the last successful overview. It may be out of date.</p>
+            </CardContent>
+        </Card>
+
+        <div v-if="!overview && !loadError" role="status" aria-label="Loading matchday overview" class="flex flex-col gap-6">
+            <p class="flex items-center gap-2 text-sm text-muted-foreground"><Spinner aria-hidden="true" /> Loading your matchday overview…</p>
+            <div aria-hidden="true" class="grid gap-4 sm:grid-cols-3">
+                <Skeleton v-for="item in 3" :key="item" class="h-36 rounded-xl motion-reduce:animate-none" />
+            </div>
+            <div aria-hidden="true" class="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+                <Skeleton class="h-72 rounded-xl motion-reduce:animate-none" />
+                <Skeleton class="h-72 rounded-xl motion-reduce:animate-none" />
+            </div>
+            <Skeleton aria-hidden="true" class="h-48 rounded-xl motion-reduce:animate-none" />
+        </div>
+
+        <Card v-if="overview && leagues.length === 0" class="border-dashed">
             <CardHeader class="gap-3">
                 <CardTitle class="text-xl">Your first matchday starts here</CardTitle>
                 <CardDescription class="max-w-xl">
@@ -127,7 +210,7 @@ defineOptions({
             </CardContent>
         </Card>
 
-        <template v-else>
+        <template v-else-if="overview && summary">
             <div class="grid gap-4 sm:grid-cols-3" aria-label="Matchday summary">
                 <a
                     v-for="item in summaryCards"
@@ -148,8 +231,10 @@ defineOptions({
                         <CardDescription>Today’s schedule, plus any matches still in progress. Refresh for the latest overview.</CardDescription>
                     </CardHeader>
                     <CardContent class="flex flex-col gap-6">
-                        <div v-if="matchGroups.length === 0" class="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-                            No matches today and none in progress. Your active seasons and outstanding tasks are below.
+                        <div v-if="matchGroups.length === 0" class="flex flex-col gap-3 rounded-lg border border-dashed p-6">
+                            <p class="text-sm font-medium">A quiet matchday</p>
+                            <p class="text-sm text-muted-foreground">No matches today and none in progress. Open a season to schedule your next fixture.</p>
+                            <a href="#my-leagues" class="self-start text-sm font-medium underline underline-offset-4">Go to my leagues</a>
                         </div>
                         <section v-for="group in matchGroups" :key="group.key" class="flex flex-col gap-3" :aria-labelledby="`matches-${group.key}`">
                             <div>
@@ -187,8 +272,9 @@ defineOptions({
                         <CardDescription>Next steps for your active seasons.</CardDescription>
                     </CardHeader>
                     <CardContent class="flex flex-col gap-6">
-                        <div v-if="attentionGroups.length === 0" class="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
-                            You’re all caught up. No overdue matches or fixture setup tasks in your active seasons.
+                        <div v-if="attentionGroups.length === 0" class="flex flex-col gap-2 rounded-lg border border-dashed p-5">
+                            <p class="text-sm font-medium">You’re all caught up</p>
+                            <p class="text-sm text-muted-foreground">No overdue matches or fixture setup tasks in your active seasons.</p>
                         </div>
                         <section v-for="group in attentionGroups" :key="group.key" class="flex flex-col gap-3" :aria-labelledby="`attention-${group.key}`">
                             <div>
@@ -229,15 +315,19 @@ defineOptions({
                             </div>
                             <div v-for="season in league.seasons" :key="season.id" class="flex flex-col gap-2">
                                 <Link :href="season.href" class="break-words text-sm font-semibold hover:underline">{{ season.name }}</Link>
-                                <p class="text-xs text-muted-foreground">{{ season.completed }} of {{ season.games }} matches finished</p>
-                                <div role="progressbar" :aria-label="`${season.name} match completion`" :aria-valuenow="progress(season)" :aria-valuemin="0" :aria-valuemax="100" class="h-1.5 overflow-hidden rounded-full bg-muted">
+                                <div v-if="season.games === 0" class="flex flex-col gap-2 rounded-lg border border-dashed p-3 text-xs">
+                                    <p class="text-muted-foreground">No fixtures yet. Open this season to set up stages and generate its schedule.</p>
+                                    <Link :href="season.href" class="self-start font-medium underline underline-offset-4">Set up fixtures</Link>
+                                </div>
+                                <p v-else class="text-xs text-muted-foreground">{{ season.completed }} of {{ season.games }} matches finished</p>
+                                <div v-if="season.games > 0" role="progressbar" :aria-label="`${season.name} match completion`" :aria-valuenow="progress(season)" :aria-valuemin="0" :aria-valuemax="100" class="h-1.5 overflow-hidden rounded-full bg-muted">
                                     <div class="h-full rounded-full bg-primary" :style="{ width: `${progress(season)}%` }" />
                                 </div>
                                 <div v-if="season.nextFixture" class="mt-1 text-xs">
                                     <p class="text-muted-foreground">Next fixture · {{ kickoffLabel(season.nextFixture.kickoff) }}</p>
                                     <p class="mt-1 break-words">{{ season.nextFixture.homeTeam }} vs {{ season.nextFixture.awayTeam }}</p>
                                 </div>
-                                <p v-else class="mt-1 text-xs text-muted-foreground">No upcoming fixture scheduled.</p>
+                                <p v-else-if="season.games > 0" class="mt-1 text-xs text-muted-foreground">No upcoming fixture scheduled. <Link :href="season.href" class="font-medium underline underline-offset-4">Review schedule</Link></p>
                             </div>
                         </CardContent>
                     </Card>

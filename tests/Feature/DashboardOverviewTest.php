@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\BuildDashboardOverview;
 use App\Enums\GameStatus;
 use App\Models\Game;
 use App\Models\League;
@@ -7,6 +8,7 @@ use App\Models\Result;
 use App\Models\Season;
 use App\Models\Stage;
 use App\Models\User;
+use Illuminate\Support\Facades\Exceptions;
 use Inertia\Testing\AssertableInertia;
 
 /** @param array<string, mixed> $attributes */
@@ -17,6 +19,10 @@ function dashboardGame(Stage $stage, array $attributes = []): Game
 
 beforeEach(function (): void {
     $this->travelTo(now()->setDate(2026, 11, 8)->setTime(12, 0));
+    $this->withHeaders([
+        'X-Inertia-Partial-Component' => 'Dashboard',
+        'X-Inertia-Partial-Data' => 'overview',
+    ]);
 });
 
 it('provides an empty overview to a new league owner', function (): void {
@@ -25,12 +31,12 @@ it('provides an empty overview to a new league owner', function (): void {
         ->assertSuccessful()
         ->assertInertia(fn (AssertableInertia $page) => $page
             ->component('Dashboard')
-            ->where('summary', ['live' => 0, 'today' => 0, 'attention' => 0])
-            ->has('leagues', 0)
-            ->has('matchday.live', 0)
-            ->has('matchday.upcoming', 0)
-            ->has('matchday.finished', 0)
-            ->has('matchday.other', 0)
+            ->where('overview.summary', ['live' => 0, 'today' => 0, 'attention' => 0])
+            ->has('overview.leagues', 0)
+            ->has('overview.matchday.live', 0)
+            ->has('overview.matchday.upcoming', 0)
+            ->has('overview.matchday.finished', 0)
+            ->has('overview.matchday.other', 0)
         );
 });
 
@@ -51,20 +57,20 @@ it('groups todays matches and includes earlier or undated matches still in progr
     $this->actingAs($league->owner)->get(route('dashboard'))
         ->assertSuccessful()
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('summary.live', 2)
-            ->where('summary.today', 5)
-            ->has('matchday.live', 2)
-            ->where('matchday.live', fn ($matches): bool => collect($matches)->pluck('id')->sort()->values()->all() === collect([$live->id, $halfTime->id])->sort()->values()->all())
-            ->has('matchday.upcoming', 2)
-            ->where('matchday.upcoming.0.id', $early->id)
-            ->where('matchday.upcoming.1.id', $late->id)
-            ->has('matchday.finished', 1)
-            ->where('matchday.finished.0.id', $finished->id)
-            ->where('matchday.finished.0.homeScore', 2)
-            ->where('matchday.finished.0.awayScore', 0)
-            ->where('matchday.finished.0.manageUrl', route('fixtures.edit', [$league, $season, $stage, $finished]))
-            ->where('matchday.finished.0.viewUrl', route('games.show', [$league, $season, $stage, $finished]))
-            ->has('matchday.other', 2)
+            ->where('overview.summary.live', 2)
+            ->where('overview.summary.today', 5)
+            ->has('overview.matchday.live', 2)
+            ->where('overview.matchday.live', fn ($matches): bool => collect($matches)->pluck('id')->sort()->values()->all() === collect([$live->id, $halfTime->id])->sort()->values()->all())
+            ->has('overview.matchday.upcoming', 2)
+            ->where('overview.matchday.upcoming.0.id', $early->id)
+            ->where('overview.matchday.upcoming.1.id', $late->id)
+            ->has('overview.matchday.finished', 1)
+            ->where('overview.matchday.finished.0.id', $finished->id)
+            ->where('overview.matchday.finished.0.homeScore', 2)
+            ->where('overview.matchday.finished.0.awayScore', 0)
+            ->where('overview.matchday.finished.0.manageUrl', route('fixtures.edit', [$league, $season, $stage, $finished]))
+            ->where('overview.matchday.finished.0.viewUrl', route('games.show', [$league, $season, $stage, $finished]))
+            ->has('overview.matchday.other', 2)
         );
 });
 
@@ -89,14 +95,14 @@ it('keeps every dashboard section scoped to the signed in users leagues', functi
     $this->actingAs($league->owner)->get(route('dashboard'))
         ->assertSuccessful()
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('summary', ['live' => 1, 'today' => 1, 'attention' => 0])
-            ->has('leagues', 1)
-            ->where('leagues.0.id', $league->id)
-            ->has('matchday.live', 1)
-            ->where('matchday.live.0.id', $ownGame->id)
-            ->where('attention.0.count', 0)
-            ->where('attention.1.count', 0)
-            ->where('attention.2.count', 0)
+            ->where('overview.summary', ['live' => 1, 'today' => 1, 'attention' => 0])
+            ->has('overview.leagues', 1)
+            ->where('overview.leagues.0.id', $league->id)
+            ->has('overview.matchday.live', 1)
+            ->where('overview.matchday.live.0.id', $ownGame->id)
+            ->where('overview.attention.0.count', 0)
+            ->where('overview.attention.1.count', 0)
+            ->where('overview.attention.2.count', 0)
         );
 });
 
@@ -126,15 +132,15 @@ it('flags actionable active season tasks without treating bracket placeholders a
     $this->actingAs($league->owner)->get(route('dashboard'))
         ->assertSuccessful()
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('summary.attention', 3)
-            ->where('attention.0.count', 1)
-            ->where('attention.0.items.0.id', $overdue->id)
-            ->where('attention.1.count', 1)
-            ->where('attention.1.items.0.id', $unscheduled->id)
-            ->where('attention.1.items.0.href', route('fixtures.edit', [$league, $season, $stage, $unscheduled]))
-            ->where('attention.2.count', 1)
-            ->where('attention.2.items.0.id', $emptyStage->id)
-            ->where('attention.2.items.0.href', route('stages.show', [$league, $season, $emptyStage]))
+            ->where('overview.summary.attention', 3)
+            ->where('overview.attention.0.count', 1)
+            ->where('overview.attention.0.items.0.id', $overdue->id)
+            ->where('overview.attention.1.count', 1)
+            ->where('overview.attention.1.items.0.id', $unscheduled->id)
+            ->where('overview.attention.1.items.0.href', route('fixtures.edit', [$league, $season, $stage, $unscheduled]))
+            ->where('overview.attention.2.count', 1)
+            ->where('overview.attention.2.items.0.id', $emptyStage->id)
+            ->where('overview.attention.2.items.0.href', route('stages.show', [$league, $season, $emptyStage]))
         );
 });
 
@@ -153,7 +159,7 @@ it('shows active season completion and the next scheduled fixture for each leagu
     $secondNext = dashboardGame($secondStage, ['match_date' => now()->addHours(3)]);
 
     $response = $this->actingAs($league->owner)->get(route('dashboard'))->assertSuccessful();
-    $leagues = collect($response->inertiaProps('leagues'))->keyBy('id');
+    $leagues = collect($response->inertiaProps('overview.leagues'))->keyBy('id');
     $seasonData = $leagues[$league->id]['seasons'][0];
 
     expect($leagues)->toHaveCount(2)
@@ -174,8 +180,59 @@ it('limits attention previews while retaining accurate totals', function (): voi
     $this->actingAs($league->owner)->get(route('dashboard'))
         ->assertSuccessful()
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('summary.attention', 7)
-            ->where('attention.0.count', 7)
-            ->has('attention.0.items', 5)
+            ->where('overview.summary.attention', 7)
+            ->where('overview.attention.0.count', 7)
+            ->has('overview.attention.0.items', 5)
         );
+});
+
+it('renders the dashboard shell without querying overview data', function (): void {
+    $this->mock(BuildDashboardOverview::class)->shouldNotReceive('execute');
+
+    $this->actingAs(User::factory()->create())
+        ->withoutHeader('X-Inertia-Partial-Data')
+        ->withoutHeader('X-Inertia-Partial-Component')
+        ->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Dashboard')
+            ->has('dateLabel')
+            ->has('timezone')
+            ->missing('overview')
+        );
+});
+
+it('returns a request error when overview data fails and allows a successful retry', function (): void {
+    Exceptions::fake();
+    $user = User::factory()->create();
+    $this->mock(BuildDashboardOverview::class)->shouldReceive('execute')->once()
+        ->andThrow(new RuntimeException('Overview temporarily unavailable'));
+
+    $this->actingAs($user)->get(route('dashboard'))->assertServerError();
+    Exceptions::assertReported(RuntimeException::class);
+
+    $this->app->forgetInstance(BuildDashboardOverview::class);
+
+    $this->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('overview.summary', ['live' => 0, 'today' => 0, 'attention' => 0])
+            ->has('overview.leagues', 0)
+        );
+});
+
+it('distinguishes leagues with no active season from active seasons with no fixtures', function (): void {
+    $league = League::factory()->create();
+    Season::factory()->for($league)->create();
+    $activeLeague = League::factory()->for($league->owner, 'owner')->create();
+    $season = Season::factory()->active()->for($activeLeague)->create();
+
+    $response = $this->actingAs($league->owner)->get(route('dashboard'))->assertSuccessful();
+    $leagues = collect($response->inertiaProps('overview.leagues'))->keyBy('id');
+
+    expect($leagues[$league->id]['seasons'])->toBeEmpty()
+        ->and($leagues[$activeLeague->id]['seasons'])->toHaveCount(1)
+        ->and($leagues[$activeLeague->id]['seasons'][0]['id'])->toBe($season->id)
+        ->and($leagues[$activeLeague->id]['seasons'][0]['games'])->toBe(0)
+        ->and($leagues[$activeLeague->id]['seasons'][0]['nextFixture'])->toBeNull();
 });
