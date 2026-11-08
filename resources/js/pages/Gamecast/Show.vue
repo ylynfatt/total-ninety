@@ -4,8 +4,10 @@ import { computed, nextTick, ref, watch } from 'vue';
 import AnimatedScore from '@/components/AnimatedScore.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import GamecastEditor from '@/components/GamecastEditor.vue';
+import RealtimeStatus from '@/components/RealtimeStatus.vue';
 import { useEchoPublicClient } from '@/composables/useEchoPublicClient';
 import { matchClockMinute, useNow } from '@/composables/useMatchClock';
+import { useRealtimeConnection } from '@/composables/useRealtimeConnection';
 import { formatDate } from '@/lib/datetime';
 import { show as leagueShow } from '@/routes/leagues';
 import { show as stageShow } from '@/routes/stages';
@@ -65,6 +67,8 @@ const props = defineProps<{
     can: { update: boolean };
     rosters: { home: Roster; away: Roster } | null;
 }>();
+
+const { state: connectionState, refresh: refreshSnapshot } = useRealtimeConnection(['game', 'events', 'rosters', 'can']);
 
 const game = ref<GamecastGame>({ ...props.game });
 
@@ -182,6 +186,7 @@ const matchTitle = computed(() => `${props.game.home_team?.name ?? 'TBD'} vs ${p
 
     <div class="mx-auto flex h-full w-full max-w-3xl flex-1 flex-col gap-6 p-4 sm:p-6">
         <Breadcrumbs :breadcrumbs="pageBreadcrumbs" />
+        <RealtimeStatus :state="connectionState" @retry="refreshSnapshot" />
 
         <!-- Scoreboard header -->
         <div class="overflow-hidden rounded-xl border border-sidebar-border shadow-md">

@@ -3,8 +3,10 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AnimatedScore from '@/components/AnimatedScore.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
+import RealtimeStatus from '@/components/RealtimeStatus.vue';
 import { useEchoPublicClient } from '@/composables/useEchoPublicClient';
 import { matchClockMinute, useNow } from '@/composables/useMatchClock';
+import { useRealtimeConnection } from '@/composables/useRealtimeConnection';
 import { show as gamecastShow } from '@/routes/games';
 import { index } from '@/routes/scoreboard';
 import type { BreadcrumbItem } from '@/types';
@@ -48,6 +50,10 @@ const props = defineProps<{
 }>();
 
 const games = ref<ScoreboardGame[]>([...props.games]);
+
+const { state: connectionState, refresh: refreshSnapshot } = useRealtimeConnection(['games'], () => {
+    games.value = [...props.games];
+});
 
 const inProgressStatuses = ['live', 'half_time'];
 
@@ -126,6 +132,7 @@ const pageBreadcrumbs: BreadcrumbItem[] = [{ title: 'Scoreboard', href: index().
 
     <div class="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6">
         <Breadcrumbs :breadcrumbs="pageBreadcrumbs" />
+        <RealtimeStatus :state="connectionState" @retry="refreshSnapshot" />
 
         <header>
             <div class="flex items-center gap-2.5">
