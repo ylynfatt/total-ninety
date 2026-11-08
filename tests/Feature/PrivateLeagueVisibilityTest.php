@@ -60,3 +60,13 @@ it('does not reveal private league memberships on public team pages', function (
     $this->actingAs($season->league->owner)->get(route('teams.show', $team))
         ->assertInertia(fn ($page) => $page->has('team.seasons', 1));
 });
+
+it('rejects inconsistent season and stage links instead of exposing another leagues match', function (): void {
+    $publicSeason = Season::factory()->create();
+    $privateSeason = Season::factory()->for(League::factory()->private())->create();
+    $stage = Stage::factory()->for($publicSeason)->create();
+    $game = Game::factory()->live()->for($stage)->for($privateSeason)->create();
+
+    $this->get(route('games.show', [$publicSeason->league, $publicSeason, $stage, $game]))->assertNotFound();
+    $this->get(route('scoreboard.index'))->assertInertia(fn ($page) => $page->has('games', 0));
+});

@@ -18,6 +18,7 @@ class ScoreboardController extends Controller
     {
         $games = Game::query()
             ->whereIn('status', [GameStatus::Live, GameStatus::HalfTime])
+            ->where(fn ($query) => $query->whereNull('stage_id')->orWhereHas('stage', fn ($stage) => $stage->whereColumn('stages.season_id', 'games.season_id')))
             ->where(function ($query) {
                 $query->whereHas('stage.season.league', fn ($league) => $league->where('is_public', true))
                     ->orWhere(fn ($legacy) => $legacy->whereNull('stage_id')

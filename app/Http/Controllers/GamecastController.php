@@ -188,5 +188,6 @@ class GamecastController extends Controller
         abort_if($season->league_id !== $league->id, 404);
         abort_if($stage->season_id !== $season->id, 404);
         abort_if($game->stage_id !== $stage->id, 404);
+        abort_if($game->season_id !== $season->id, 404);
     }
 }
