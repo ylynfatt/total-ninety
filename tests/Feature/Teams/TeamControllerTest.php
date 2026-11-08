@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Game;
+use App\Models\League;
 use App\Models\Season;
 use App\Models\Team;
 use App\Models\User;
@@ -226,4 +227,13 @@ it('refuses to delete a team referenced by a fixture even without a season attac
 
     $this->actingAs($team->owner)->delete(route('teams.destroy', $team))->assertSessionHasErrors('delete');
     expect($team->fresh())->not->toBeNull();
+});
+
+it('hides deletion for teams attached to a private season owned by someone else', function (): void {
+    $team = Team::factory()->create();
+    $season = Season::factory()->for(League::factory()->private())->create();
+    $season->teams()->attach($team);
+
+    $this->actingAs($team->owner)->get(route('teams.show', $team))
+        ->assertInertia(fn ($page) => $page->where('can.delete', false));
 });

@@ -55,7 +55,7 @@ class TeamsController extends Controller
             'can' => [
                 'update' => request()->user()?->can('update', $team) ?? false,
                 'delete' => (request()->user()?->can('delete', $team) ?? false)
-                    && $team->seasons->isEmpty() && ! $team->homeGames()->exists() && ! $team->awayGames()->exists(),
+                    && ! $team->seasons()->exists() && ! $team->homeGames()->exists() && ! $team->awayGames()->exists(),
             ],
         ]);
     }
